@@ -1,0 +1,23 @@
+# generated binaries
+Distribution/oscam-*
+Distribution/list_smargo-*
+
+# backup/swap file for vi
+*~
+*.swp
+
+# build directories
+/build/.tmp
+oscam*.tar.gz
+oscam*.ipk
+oscam
+oscam.exe
+conffiles
+!oscam/
+
+# Currently enabled config items
+webif/is_defined.txt
+
+# Testing program
+tests.bin
+tests.bin.debug

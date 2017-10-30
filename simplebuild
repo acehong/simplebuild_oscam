@@ -1,0 +1,3766 @@
+#!/bin/bash
+
+SIMPLEVERSION='2.45';
+directmenu='';
+shortname='oscam';
+
+	orgIFS="$IFS";
+	cpus='0';
+	noXLD='0';
+	cpus=`grep 'processor' /proc/cpuinfo | sort -u | wc -l`;
+	[ "$cpus" == "0" ] && cpus="1";
+	rdir=`pwd`;
+	native=`hostname`-`uname -m`;
+	native32="`hostname`-32bit";
+	tcdir="$rdir/toolchains";
+	svndir="$rdir/oscam-svn";
+	cdir="$tcdir/configs";
+	upxdir="$tcdir/tools";
+	bdir="$tcdir/backup";
+
+	t1=84111111108991049710511045;
+	t2=116111111108115461169711446120122;
+	s1=1081059811111599971099511511697112105461184846485697461169711446120122;
+	u2=10411611611258474711511552504848461041111091011081051101171204699111109471111159997109;
+	u1=1041161161125847471151161141019710998111971141004611611847119989850471161171164511210599115471161111111089910497105110115;
+
+	trunkurl="http://www.streamboard.tv/svn/oscam/trunk";
+	[ -f oscamsource.url ] && source oscamsource.url;
+
+#[ install packages ]---
+	packages="dialog xz gawk svn";
+	npnative64="ia32-libs libc6-dev zlib1g-dev lib32z1-dev lib32bz2-dev lib32z1";
+	npnative="dialog xz-utils gawk subversion gcc make libusb-dev libusb-1.0-0\
+	libusb-1.0-0-dev libssl-dev libpcsclite-dev libccid libc6-dev zlib1g-dev\
+	build-essential gcc-multilib module-assistant dos2unix sshpass openssl";
+	ubu14files="zlib1g-dev subversion lib32ncurses5 lib32bz2-1.0 lib32z1 pcsc-tools libpcsclite-dev\
+	sshpass dos2unix module-assistant libssl-dev libusb-1.0-0-dev libusb-dev gawk";
+
+#[ sys vars ]---
+allchains_list="solo4k syn_ds3612xs arm_v7 arm_cortex_a9 azbox nslu2open brcm63xx brcm63xx_other cool openwrt_pcsc_48 mipsel-all_fpu ppcold ddwrt346 ddwrt410 dreambox_fpu mipsel mipsoe20 powerpc dockstar fonera fritz33xx fritz71xx  fritz72xx fritz73xx fritz74xx fritz73xxOS60 fritz74xxOS60 fritz73xxOS62 fritz74xxOS62 fritz74xxOS65 mca openpli40 openwrt26 openwrt24 openwrt1209aa pogoplug ppc_eglibc rasb_hard rasb_soft sheevaplug marv_6281 tplink tplink_backfire sh_4 sh4 syn_atom samsungtv";
+       no_pcsc='brcm63xx ppcold powerpc mca openwrt1209aa pogoplug openwrt_pcsc_48';
+        no_usb='ppcold mca';
+      webifvar="#define WEBIF 1"; sslvar="#define WITH_SSL 1";
+ oldconfigname="oscam-config.h"; newconfigname="config.h";
+ no_static_use="0"; no_extra_use="0";
+ssl_static_set='off'; libusb_static_set='off'; libcrypto_static_set='off';
+
+#[ config vars ]---
+	getextra="LIBUSB PCSC PATCH STAPI PACK COOLAPI CUSTOM_SUFFIX LSD CONFDIR COMPRESS LIBCRYPTO";cfg_is_set="0"; skipconfigcheck=0;
+	cset="NO"; pack_set="NO"; pcsc_set="NO"; stapi_set="NO"; libusb_set="NO"; static_set="NO"; compr_set="NO"; libcrypto_set="NO";
+	LSD="not_set"; CONFDIR="not_set"; cfgdir="not_set"; CUSTOM_SUFFIX="not_set"; already_disabled_addons="0"; shortname_set=0; loadonly=0
+
+#[ colors ]---
+	n='\e[0m';
+	r='\e[0;31m';
+	g='\e[0;32m';
+	y='\e[0;33m';
+	p='\e[0;35m';
+	b='\e[0;36m';
+	wh='\e[0;37m';
+
+#[ oscamlogo ]---
+oscam()	{
+	printf "%-s\n" "    ___  ____   ___" "   / _ \\/ ___| / __|__ _ _ __ ___" "  | | | \\___ \\| |  / _\` | '_ \` _ \ " "  | |_| |___) | |_| (_| | | | | | |" "   \\___/|____/ \\___\\__,_|_| |_| |_|";
+	}
+
+#[ streamboardlogo ]
+logo()	{
+	printf "\t%-s\n" "     _                            _                         _" " ___| |_ _ __ ___  __ _ _ __ ___ | |__   ___   __ _ _ __ __| |" "/ __| __| '__/ _ \/ _\` | '_ \` _ \| '_ \ / _ \ / _\` | '__/ _\` |" "\__ \ |_| | |  __/ (_| | | | | | | |_) | (_) | (_| | | | (_| |" "|___/\__|_|  \___|\__,_|_| |_| |_|_.__/ \___/ \__,_|_|  \__,_|";
+	}
+
+#[ bye ]
+bye()	{
+	clear;
+	printf "\n\t\t simplebuild made for";
+	echo -e $b;
+	logo;
+	echo -e "\e[8;50H \e[8;50f" && echo -e -n "$g\t\t\t\t\t\t by gorgone $t$n"
+	nli;
+	exit 0;
+	}
+
+#[ help message ]
+usage()	{
+	clear;
+	logo;
+	printf "\n\t %-30s"\
+	"----------------------------------"\
+	"$txt_help1 $0 menu"\
+	"$txt_help2"\
+	"----------------------------------";
+	printf "\n\t %10s" "toolchains : ";
+	echo -e $g;
+	printf "\t %-50s\n"\
+	"native arm_v7 arm_cortex_a9 azbox brcm63xx brcm63xx_other"\
+	"cool ddwrt346 ddwrt410 dockstar dreambox_fpu fonera"\
+	"fritz33xx fritz71xx fritz72xx fritz73xx fritz74xx"\
+	"fritz73xxOS60 fritz74xxOS60 fritz73xxOS62 fritz74xxOS62"\
+	"fritz74xxOS65 marv_6281 mca mipsel mipsoe20 openwrt24 openwrt26"\
+	"openwrt1209aa powerpc ppc_eglibc ppcold rasb_hard rasb_soft"\
+	"samsungtv sheevaplug sh_4 sh4 syn_atom solo4k nslu2open"\
+	"openpli40 pogoplug tplink tplink_backfire"
+	echo -e $n;
+	printf "\t %10s" "options : ";
+	echo -e $p;
+	printf "\t %-50s\n"\
+	"compress_off compress_on coolapi_off coolapi_on"\
+	"libcrypto_off libcrypto_on libcrypto_static"\
+	"pack_off pack_on pcsc_off pcsc_on"\
+	"stapi_off stapi_on usb_off usb_on usb_static"
+	echo -e $n;
+	printf "\t %10s" "modes :   ";
+	echo -e $y;
+	printf "\t %-50s\n"\
+	"default saved custom shortname verbose"
+	echo -e $n;
+	printf "\t %10s" "tools :   ";
+	echo -e $b;
+	printf "\t %-50s\n"\
+	"cedit checkout checksys clean debinstall"\
+	"ubu14install lang_select patches_on patches_off"\
+	"upload reset_all loadonly"
+	echo -e $n;
+	read -p "         $txt_help3"
+	echo -e "\033[1;31;40m";
+	printf "\t %s\n"\
+	"ALL OSCAM COMPONENTS :"\
+	"----------------------"\
+	"ALL(_on/_off)";
+	echo -e "\033[1;32;40m";
+	printf "\t %s\n"\
+	"ADDONS :"\
+	"--------"\
+	"ADDONS(_on/_off)"\
+	"ANTICASC(_off) CACHEEX(_off) CW_CYCLE_CHECK(_off) CLOCKFIX(_off)"\
+	"DEBUG(_off) DVBAPI(_off) IPV6SUPPORT(_off) IRDETO_GUESSING(_off)"\
+	"LB(_off) LCDSUPPORT(_off) LEDSUPPORT(_off) DVBAPI_SAMYGO(_off)"\
+	"MONITOR(_off) SSL(_off/_static) TOUCH(_off)"\
+	"WEBIF(_off) WEBIF_LIVELOG(_off) WEBIF_JQUERY(_off)";
+	echo -e "\033[1;33;40m";
+	printf "\t %s\n"\
+	"PROTOCOLS :"\
+	"-----------"\
+	"PROTO(_on/_off)"\
+	"CAMD33(_off) CAMD35(_off) CAMD35_TCP(_off)"\
+	"CCCSHARE(_off) CCCAM(_off) CONSTCW(_off)"\
+	"GBOX(_off) GHTTP(_off) PANDORA(_off)"\
+	"RADEGAST(_off) NEWCAMD(_off) SCAM(_off) SERIAL(_off)";
+	echo -e "\033[m ";
+	read -p "         $txt_help3"
+	echo -e "\033[1;34;40m";
+	printf "\t %s\n"\
+	"READERS :"\
+	"---------"\
+	"READERS(_on/_off)"\
+	"BULCRYPT(_off) CRYPTOWORKS(_off) CONAX(_off) " \
+	"DGCRYPT(_off) DRE(_off) GRIFFIN(_off) " \
+	"IRDETO(_off) NAGRA(_off) SECA(_off) TONGFANG(_off) " \
+	"VIACCESS(_off) VIDEOGUARD(_off) ";
+	echo -e "\033[1;35;40m";
+	printf "\t %s\n"\
+	"CARD_READERS :"\
+	"--------------"\
+	"CARDREADERS(_on/_off)"\
+	"CR_DB2COM(_off) CR_INTERNAL(_off) CR_MP35(_off)"\
+	"CR_PHOENIX(_off) CR_SC8IN1(_off) CR_SMARGO(_off)"\
+	"CR_STINGER(_off) CR_STAPI(_off)";
+	echo -e "\033[m ";
+	nli;
+	exit 0
+	}
+
+wsize_check()	{
+		lines=$(echo -e lines|tput -S);
+		cols=$(echo -e cols|tput -S);
+		[ "$cols" -gt "85" ] && mcols=85 || mcols=$cols;
+		[ "$cols" -gt "120" ] && mcols=110 || mcols=$cols;
+		}
+
+mbox()		{
+		wsize_check;
+		messagebox="$progressbox_gui --colors --title ""$1"" --progressbox $[lines -10] $[mcols -4]";
+		}
+
+mbox2()		{
+		wsize_check;
+		messagebox="$progressbox_gui ""$1"" --progressbox $[lines -10] $[mcols -4]";
+		}
+
+timer_start()	{
+		Ts=$(date +%s);
+		}
+
+timer_stop()	{
+		Te=$(date +%s);
+		}
+
+timer_calc()	{
+		Tcalc=$[Te-Ts];
+		}
+
+beep()		{ echo -en '\007'; }
+
+nli()		{ echo -e "\n$n"; }
+
+EX()		{ clear; echo -e "\n\n $1"; sleep 4; exit; }
+
+show_buildlog()	{
+		cols=$(echo -e cols|tput -S);
+		[ -f $rdir/build.log ] && $gui --stdout --textbox $rdir/build.log 25 $[ $cols -4 ];
+		b_menu;
+		}
+
+check_ssl()	{
+		checkssl=`grep "^$sslvar" $svndir/$cn`;
+
+		if [ "$checkssl" == "$sslvar" ]; then
+		    if [ "$sslsuffix" == "-ssl_st" ]; then
+			SSL_static >/dev/null 2>&1;
+			libcrypto_static >/dev/null 2>&1;
+		    else
+			SSL >/dev/null 2>&1;
+			libcrypto_on >/dev/null 2>&1;
+		    fi;
+		else
+		    SSL_off >/dev/null 2>&1;
+		fi;
+		}
+
+check_webif()	{
+		webifsuffix=""; checkwebif=`grep "^$webifvar" $svndir/$cn`;
+		[ "$checkwebif" == "$webifvar" ] && webifsuffix="-webif";
+		}
+
+oscam_name()	{
+		cd $svndir;
+		p_c=`ls *.patch 2> /dev/null | wc -l`;
+		[ "$p_c" != "0" ] && patchsuffix="-patched" || patchsuffix="";
+		[ "$sslsuffix" == '-ssl' ] && [ ! "$lcsuffix" == '-libcrypto_st' ] && lcsuffix='';
+		[ "$sslsuffix" == '-ssl_st' ] && [ "$lcsuffix" == '-libcrypto_st' ] && lcsuffix='';
+		[ $CUSTOM_SUFFIX == "not_set" ] && o_name=oscam-svn`./config.sh -r`-$target$webifsuffix$lcsuffix$sslsuffix$usbsuffix$pcscsuffix$staticsuffix$stapisuffix$debugsuffix$ext_name$patchsuffix || o_name=oscam-svn`./config.sh -r`-$CUSTOM_SUFFIX;
+		}
+
+getrev()	{
+		if [ -f "$svndir/config.sh" ]; then
+		    REVISION=`$svndir/config.sh -r`;
+		    [ -f "$svndir/config.h" ] && cn=$newconfigname || cn=$oldconfigname;
+		else
+		    REVISION="not found";
+		fi;
+		}
+
+calc()		{
+		result=`echo $1 | awk '{ sum=$1 ; hum[1024**3]="Gb";hum[1024**2]="Mb";hum[1024]="Kb"; for (x=1024**3; x>=1024; x/=1024){ if (sum>=x) { printf "%.2f %s\n",sum/x,hum[x];break } }}'`;
+		}
+
+getit()		{
+		u=`echo "$1" | awk '{ for(i=1;i<=length;i+=2) { if(int(substr($0,i,2)) < 20) { printf("%c",int(substr($0,i,3))) ;i++ } else { printf("%c",int(substr($0,i,2))) }}}; END{print ""}'`;
+		}
+
+s_path()	{
+		[ ! -f "$rdir/simplebuild.config" ] && getit $u2 && sbc=`wget -q $u/simplebuild.config`;
+		cd $rdir;
+		getit $u1;
+		fpath=$u;
+		getit $s1;
+		sname=$u;
+		get_options;
+		}
+
+get_options()	{ cd $rdir;
+		deldebug="1";
+		debug="0";
+		intcheck="0";
+		nosvncheck="0";
+		ucheck="1";
+		deldebug=`grep ^deldebug simplebuild.config | tr -d ' aA-zZ"'`;
+		debug=`grep ^debug simplebuild.config | tr -d ' aA-zZ"'`;
+		intcheck=`grep ^intcheck simplebuild.config | tr -d ' aA-zZ"'`;
+		nosvncheck=`grep ^nosvncheck simplebuild.config | tr -d ' aA-zZ"'`;
+		ucheck=`grep ^ucheck simplebuild.config | tr -d ' aA-zZ"'`;
+		}
+
+get_conf()	{
+		cd $rdir;
+		target=$1;
+		getit $t1;
+		tpre=$u;
+		configline=`grep ^$1 simplebuild.config`;
+		conf_dir=`echo		$configline |awk '{print $2}' |sed s/\"//g`;
+		compiler=`echo		$configline |awk '{print $3}' |sed s/\"//g`;
+		sysroot=`echo		$configline |awk '{print $4}' |sed s/\"//g`;
+		menuname=`echo		$configline |awk '{print $6}' |sed s/\"//g`;
+		toolcname=`echo		$configline |awk '{print $7}' |sed s/\"//g`;
+		libsearchdir=`echo	$configline |awk '{print $5}' |sed s/\"//g`;
+		confdirfilesize=`echo	$configline |awk '{print $8}' |sed s/\"//g`;
+		getit $toolcname;
+		tsuf=$u;
+		tcname=$tpre$tsuf;
+		conf_dir_backup=$conf_dir;
+		libsearchdir_backup=$libsearchdir;
+		CROSS="$tcdir/$target/bin/$compiler";
+		if [ ${#sysroot} -gt 2 ]; then
+		    buildroot="$tcdir/$target/$sysroot";
+		else
+		    buildroot="$tcdir/$target";
+		fi;
+		}
+
+save_conf()	{
+		cp -f "$svndir/$cn" "$cdir/$target.$cn.saved";
+		}
+
+check_test()	{
+		[ "$(cat "$svndir/$cn" | grep "^#define $1$")" != "" ] && echo "on" || echo "off";
+		}
+
+copy_config()	{
+		[ -f "$svndir/$cn.org" ] && rm "$svndir/$cn.org"; cp "$svndir/$cn" "$svndir/$cn.org";
+		}
+
+pack_cam_con()	{
+		cd "$rdir/archiv";
+		[ -f $1 ] && tar cfvz $1.tar.gz $1 >/dev/null 2>&1;
+		[ -f "$1.tar.gz" ] && echo -e "\n\t$p$1.tar.gz\n\t$txt_packok$n\n" || echo -e "$r $txt_packfail $CUSTOM_SUFFIX$n\n";
+		sleep 2;
+		cd $rdir;
+		}
+
+pack_cam()	{
+		cd "$rdir/archiv";
+		[ -f $1 ] && tar cfvz $1.tar.gz $1 >/dev/null 2>&1;
+		[ -f "$1.tar.gz" ] && $infobox_gui "\Zb\Z4 $1.tar.gz\n $txt_packok" 6 60 || $infobox_gui "\Zb\Z1 $txt_packfail $CUSTOM_SUFFIX" 6 60;
+		sleep 2;
+		cd $rdir;
+		}
+
+install_sys()	{
+		apt-get -f -y --ignore-missing install $npnative64;
+		apt-get -f -y --ignore-missing install $npnative;
+		check_sys;
+		}
+
+ubu14install_sys()	{
+		sudo apt-get -f -y --ignore-missing install $ubu14files;
+		check_sys;
+		}
+
+size_check()	{
+		FILESIZE=$(stat -c%s "$1");
+		lfz=$FILESIZE;
+		}
+
+checkout()	{
+		mbox "checkout_SVN";
+		svn co $trunkurl $1 |$messagebox;
+		}
+
+rescue_checkout(){
+		echo -e "\n $p$txt_rcheckout$wh";
+		echo -ne ' ';svn co $trunkurl oscam-svn |grep 'Re';
+		}
+
+menu()		{
+		all_off;
+		[ "$1" == "native" ] && native_on && b_menu;
+		[ "$1" == "native32" ] && native32_on && b_menu;
+		get_conf $1;
+		tc_check $1;
+		mcaoption='';
+		[ "$1" == "cool" ] && coolapi_on && b_menu;
+		[ "$1" == "azbox" ] && azbox_on && b_menu;
+		[ "$1" == "sh_4" ] && b_menu;
+		[ "$1" == "sh4" ]  && b_menu;
+		[ "$1" == "mca" ]  && mcaoption='USE_MCA=1';
+		[ "$1" == "arm_cortex_a9" ]  && armoption='USE_SU980=1';
+		b_menu;
+		}
+
+rbs()		{
+		[ -d archiv ] && rm -rf archiv && echo -e $n"archiv$p $txt_rm"$n;
+		[ -d toolchains ] && rm -rf toolchains && echo -e $n"toolchains$p $txt_rm"$n;
+		[ -d oscam-svn ] && rm -rf oscam-svn && echo -e $n"oscam-svn$p $txt_rm"$n;
+		[ -d patches ] && rm -rf patches && echo -e $n"patches$p $txt_rm"$n;
+		[ -f simplebuild.config ] && rm -f simplebuild.config && echo -e $n"simplebuild.config$p $txt_rm"$n;
+		[ -f build.log ] && rm -f build.log && echo -e $n"build.log$p $txt_rm"$n;
+		}
+
+rminimal()	{
+		[ -d archiv ] && rm -rf archiv && echo -e $n"archiv$p $txt_rm"$n;
+		[ -d toolchains/configs ] && rm -rf toolchains/configs && echo -e $n"configs$p $txt_rm"$n;
+		[ -d oscam-svn ] && rm -rf oscam-svn && echo -e $n"oscam-svn$p $txt_rm"$n;
+		[ -f simplebuild.config ] && rm -f simplebuild.config && echo -e $n"simplebuild.config$p $txt_rm"$n;
+		[ -f build.log ] && rm -f build.log && echo -e $n"build.log$p $txt_rm"$n;
+		}
+
+counter_()	{
+		if [ "$1" == "0" ]; then
+		    COUNT=0
+		else
+		    COUNT=$[COUNT+1]
+		fi
+		WHSIZE=$((COUNT+7));
+		}
+
+cmd_org()	{
+		[ -f "$svndir/$cn.org" ] && cp -f "$svndir/$cn.org" "$svndir/$cn";
+		}
+
+cmd_clear()	{
+		cmd_org;
+		tfound="0";
+		cmdssl="0";
+		cmdusb="0";
+		ndvbapi="0";
+		nostapi="1";
+		azapi="";
+		coolapi="";
+		coolsuffix="";
+		st="";
+		stapi="";
+		stapisuffix="";
+		staticsuffix="";
+		}
+
+con_func()	{
+		[ ! -d "$rdir/oscam-svn" ] && rescue_checkout;
+		getrev;
+		[ -f "$rdir/simplebuild.config" ] && get_conf $param && get_options || exit;
+
+		if [ ! -d "$tcdir/$param" ]; then
+		    tc_concheck $param;
+		else
+		    if [ "$second" == "loadonly" ]; then
+			clear;
+			logo;
+			echo -e "\n$y\t$param $n$txt_found_in\n\t$g$tcdir$n\n";
+		    fi;
+		    if [ "$intcheck" == "1" ]; then
+			cd "$tcdir/$param"
+			dirfilesize=`du -bs |awk '{print $1}'`;
+			if [ ! "$dirfilesize" == "$confdirfilesize" ]; then
+			    rm -rf "$tcdir/$param";
+			    tc_concheck $param;
+			fi;
+		    fi;
+		fi;
+		
+		
+		if [ ! "$tfound" == "1" ]; then
+		    target=$param;
+		    tfound="1";
+		    check_extra;
+		fi;
+		}
+
+check_extra()	{
+		if [ ! "$no_extra_use" == "1" ]; then
+		    [ -f "$cdir/$target.$cn.saved.extra" ] && get_extra;
+		fi;
+		}
+
+get_extra()	{
+		stapi_off;
+		coolapi_off;
+		compress_off;
+		local erg="";
+		for e in $getextra;
+		do erg=`cat $cdir/$target.$cn.saved.extra |grep ^$e |awk '{print $2}'`;
+		    case $e in
+			LSD)           [ ! $erg == "not_set" ] && libsearchdir="$erg";;
+			CONFDIR)       [ ! $erg == "not_set" ] && conf_dir="$erg";;
+			CUSTOM_SUFFIX) [ ! $erg == "not_set" ] && CUSTOM_SUFFIX="$erg";;
+			LIBUSB)        [ ! $erg == "NO" ]      && usb_on       || usb_off;;
+			PCSC)          [ ! $erg == "NO" ]      && pcsc_on      || pcsc_off;;
+			PACK)          [ ! $erg == "NO" ]      && pack_on      || pack_off;;
+			PATCH)         [ ! $erg == "NO" ]      && patches_on   || patches_off;;
+			STAPI)         [ ! $erg == "NO" ]      && stapi_on     || stapi_off;;
+			COOLAPI)       [ ! $erg == "NO" ]      && coolapi_on   || coolapi_off;;
+			COMPRESS)      [ ! $erg == "NO" ]      && compress_on  || compress_off;;
+			LIBCRYPTO)     [ ! $erg == "NO" ]      && libcrypto_on || libcrypto_off;;
+		    esac;
+		done;
+		}
+
+STATIC_OPTIONS(){
+		check_static;
+		ssout=$($gui --clear --stdout --checklist \
+		"$txt_extra1" 13 45 4 \
+		USB		"static" $libusb_static_set	\
+		SSL		"static" $ssl_static_set	\
+		LIBCRYPTO	"static" $libcrypto_static_set	);
+		[ $? = 255 ] && configure_menu;
+		sstat=`echo $ssout |sed s/\"//g`;
+		ssl_static_set='off';
+		libusb_static_set='off';
+		libcrypto_static_set='off';
+
+		for ss in $sstat;
+		do
+		    case $ss in
+			SSL)		ssl_static_set='on'; libcrypto_static_set='on';;
+			USB)		libusb_static_set='on';;
+			LIBCRYPTO)	libcrypto_static_set='on';;
+		    esac;
+		done;
+
+		write_static;
+		configure_menu;
+		}
+
+write_static()	{
+		echo -e "ssl_static_set=$ssl_static_set\nlibusb_static_set=$libusb_static_set\nlibcrypto_static_set=$libcrypto_static_set">"$cdir/$target.static";
+		}
+
+patches_on()	{ patches="1"; patch_stat="on"; patch_set="YES"; }
+patches_off()	{ patches='0'; patch_stat="off"; patch_set="NO"; }
+
+extra()		{
+		[ -f "$cdir/$target.$cn.saved.extra" ] && get_extra || compress_off;
+		oout=$($gui --clear --stdout --checklist\
+		"$txt_extra1" 16 60 8			\
+		USB "$txt_extra2" $libusb_stat		\
+		PCSC "$txt_extra3" $pcsc_stat		\
+		STAPI "$txt_extra4" $stapi_stat		\
+		COOLAPI "$txt_extra5" $cool_stat	\
+		COMPRESS "$txt_extra8" $compr_stat	\
+		LIBCRYPTO "$txt_lc" "$libcrypto_stat"	\
+		PATCH "$txt_patch" "$patch_stat"		\
+		PACK "$txt_extra7" $pack_stat		);
+
+		[ $? = 255 ] && configure_menu;
+
+		coolapi="";	coolsuffix="";		cset="NO";
+		pcsc="";	pcscsuffix="";		pcsc_set="NO";
+		stapi="";	stapisuffix="";		stapi_set="NO";
+		libusb="";	usbsuffix="";		libusb_set="NO";
+		st="";		staticsuffix="";	static_set="NO";
+		compr=""; compr_set="NO"; pack_set="NO"; patch_set="NO"; libcrypto_set="NO";
+		patches_off;
+		gstat=`echo $oout |sed s/\"//g`;
+
+		for s in $gstat;
+		do
+		    case $s in
+			USB)		usb_on;;
+			PCSC)		pcsc_on;;
+			PACK)		pack_on;;
+			PATCH)		patches_on;;
+			COMPRESS)	compress_check;;
+			LIBCRYPTO)	libcrypto_on;;
+			COOLAPI)	[ "$target" == "cool" ] && coolapi_on;;
+			STAPI)		[ "$target" == "sh_4" ] && stapi_on; [ "$target" == "sh4" ] && stapi_on;;
+		    esac;
+		done;
+
+		write_extra;
+		configure_menu;
+		}
+
+write_extra()	{
+		[ $CUSTOM_SUFFIX == $o_name ] && CUSTOM_SUFFIX="not_set";
+		echo -e "LIBUSB\t$libusb_set\nPACK\t$pack_set\nPCSC\t$pcsc_set\nSTAPI\t$stapi_set\nSTATIC\t$static_set\nCOOLAPI\t$cset\nCUSTOM_SUFFIX\t$CUSTOM_SUFFIX\nLSD\t$lsd\nCONFDIR\t$conf_dir\nCOMPRESS\t$compr_set\nLIBCRYPTO\t$libcrypto_set\nPATCH\t$patch_set">"$cdir/$target.$cn.saved.extra";
+		}
+
+compress_check(){
+		machine=$(uname -m); upxbin=NO;
+
+		case $machine in
+		    x86_64)
+			upxbin=upx64bit;;
+		    i386)
+			upxbin=upx32bit;;
+		    i486)
+			upxbin=upx32bit;;
+		    i586)
+			upxbin=upx32bit;;
+		    i686)
+			upxbin=upx32bit;;
+		    armv6l)
+			upxbin=upxarmeb;;
+		esac;
+
+		if [ -d $upxdir ]; then
+		    cd $upxdir;
+		    if [ ! "$upxbin" == "NO" ]; then
+			if [ -f $upxbin ]; then
+			    compress_on;
+			    if [ ! -f active ]; then
+				echo "upxbin=$upxbin" >active;
+				$menubox_gui --msgbox "\n $machine found (now active)\n " 7 50;
+			    fi;
+			else
+			    compress_off;
+			    [ -f active ] && rm -rf active;
+			    $menubox_gui --msgbox "\n $machine found (not compatible compression disabled)" 7 50;
+			fi;
+		    fi;
+		fi;
+		}
+
+org_config()	{
+		cd $svndir;
+		make config 2>/dev/null;
+		cd $rdir ;
+		save_conf;
+		configure_menu ;
+		}
+
+
+custom_off()	{
+		CUSTOM_SUFFIX="not_set";
+		}
+
+libcrypto_off()	{
+		libcrypto_set="NO";
+		libcrypto_stat="off";
+		libcrypto_static_set="off";
+		libcrypto='';
+		lcsuffix='';
+		libcrypto_lib='';
+		}
+
+libcrypto_static(){
+		libcrypto_on;
+		libcrypto_static_set="on";
+		lcsuffix="-libcrypto_st";
+		libcrypto_lib='-Wl,-Bstatic -lcrypto -Wl,-Bdynamic';
+		}
+
+libcrypto_on()	{
+		libcrypto_set="YES";
+		libcrypto_stat="on";
+		libcrypto="USE_LIBCRYPTO=1";
+		lcsuffix="-libcrypto";
+		libcrypto_lib='-lcrypto';
+		}
+
+pack_off()	{
+		pack_set="NO";
+		pack_stat="off";
+		}
+
+pack_on()	{
+		pack_set="YES";
+		pack_stat="on";
+		}
+
+azbox_off()	{
+		azset="NO";
+		az_stat="off";
+		azapi="";
+		}
+
+azbox_on()	{
+		azset="YES";
+		az_stat="on";
+		azapi="USE_AZBOX=1";
+		}
+
+coolapi_off()	{
+		cset="NO";
+		cool_stat="off";
+		coolapi="";
+		coolsuffix="";
+		}
+
+coolapi_on()	{
+		cset="YES";
+		cool_stat="on";
+		coolsuffix="-coolapi";
+		coolapi="USE_COOLAPI=1";
+		}
+
+compress_on()	{
+		compr_set="YES";
+		compr_stat="on";
+		}
+
+compress_off()	{
+		compr_set="NO";
+		compr_stat="off";
+		}
+
+stapi_off()	{
+		stapi_set="NO";
+		stapi_stat="off";
+		stapi="";
+		stapisuffix="";
+		}
+
+stapi_on()	{
+		stapi_set="YES";
+		stapi_stat="on";
+		stapi="USE_STAPI=1";
+		stapisuffix="-stapi";
+		}
+
+usb_off()	{
+		libusb_set="NO";
+		libusb_static_set="off";
+		libusb_stat="off";
+		uset='';
+		libusb='';
+		usbsuffix='';
+		libusb_lib='';
+		}
+
+usb_static()	{
+		usb_on;
+		libusb_stat="on";
+		libusb_static_set="on";
+		usbsuffix="-libusb_st";
+		libusb_lib='-Wl,-Bstatic -lusb-1.0 -lrt -Wl,-Bdynamic';
+		}
+
+usb_on()	{
+		libusb_set="YES";
+		libusb_static_set="off";
+		libusb_stat="on";
+		uset="YES";
+		libusb="USE_LIBUSB=1";
+		usbsuffix="-libusb";
+		[ -f "$buildroot/lib/libusb-1.0.a" ] && usb_lib="LIBUSB_LIB=$buildroot/lib/libusb-1.0.a" || usb_lib='';
+		usb_path="LIBUSB_FLAGS=-I$buildroot/include/libusb-1.0";
+		libusb_lib='-lusb-1.0 -lrt';
+		}
+
+pcsc_off()	{
+		pcsc_static_set="off";
+		pcsc_set="NO";
+		pcsc_stat="off";
+		pcsc='';
+		pcscsuffix='';
+		pcsc_extra='';
+		pcsc_lib='';
+		}
+
+pcsc_on()	{
+		pcsc_extra='';
+		pcsc_static_set="off";
+		pcsc_set="YES";
+		pcsc_stat="on";
+		pcsc="USE_PCSC=1";
+		pcscsuffix="-pcsc";
+		pcsc_lib='-lpcsclite';
+		}
+
+native_off()	{
+		conf_dir='';
+		compiler='';
+		tn=0;
+		lz='';
+		target='';
+		menuname=' ';
+		libsearchdir='';
+		}
+
+native_on()	{
+		conf_dir="/usr/local/etc";
+		compiler="gcc";
+		tn=1;
+		lz='-lz';
+		target="$native";
+		menuname=`uname -m -n`;
+		libsearchdir="/usr/lib";
+		conf_dir_backup=$conf_dir;
+		libsearchdir_backup=$libsearchdir;
+		}
+
+shortname()	{ shortname_set=1; }
+
+all_off()	{
+		libcrypto_off	>/dev/null 2>&1;
+		coolapi_off	>/dev/null 2>&1;
+		patches_off	>/dev/null 2>&1;
+		custom_off	>/dev/null 2>&1;
+		native_off	>/dev/null 2>&1;
+		azbox_off	>/dev/null 2>&1;
+		stapi_off	>/dev/null 2>&1;
+		pcsc_off	>/dev/null 2>&1;
+		pack_off	>/dev/null 2>&1;
+		usb_off		>/dev/null 2>&1;
+		SSL_off		>/dev/null 2>&1;
+		}
+
+ALL_on()		{ cd $svndir; nli; echo -en $g; make allyesconfig; echo -en $n; }
+ALL_off()		{ cd $svndir; nli; echo -en $p; make allnoconfig; echo -en $n; }
+
+ADDONS_on()		{ cd $svndir; echo -en $g; ./config.sh --enable addons; echo -en $n; }
+ADDONS_off()		{ cd $svndir; echo -en $p; ./config.sh --disable addons; echo -en $n; }
+
+WEBIF()			{ cd $svndir; echo -en $g; ./config.sh --enable WEBIF; echo -en $n; webifsuffix="-webif"; }
+WEBIF_off()		{ cd $svndir; echo -en $p; ./config.sh --disable WEBIF; echo -en $n; webifsuffix=""; }
+
+TOUCH()			{ cd $svndir; echo -en $g; ./config.sh --enable TOUCH; echo -en $n; }
+TOUCH_off()		{ cd $svndir; echo -en $p; ./config.sh --disable TOUCH; echo -en $n; }
+
+CLOCKFIX()		{ cd $svndir; echo -en $g; ./config.sh --enable CLOCKFIX; echo -en $n; }
+CLOCKFIX_off()		{ cd $svndir; echo -en $p; ./config.sh --disable CLOCKFIX; echo -en $n; }
+
+DVBAPI()		{ cd $svndir; echo -en $g; ./config.sh --enable HAVE_DVBAPI; echo -en $n; }
+DVBAPI_off()		{ cd $svndir; echo -en $p; ./config.sh --disable HAVE_DVBAPI; echo -en $n; }
+
+DVBAPI_SAMYGO()		{ cd $svndir; echo -en $g; ./config.sh --enable DVBAPI_SAMYGO; echo -en $n; }
+DVBAPI_SAMYGO_off()	{ cd $svndir; echo -en $p; ./config.sh --disable DVBAPI_SAMYGO; echo -en $n; }
+
+IRDETO_GUESSING()	{ cd $svndir; echo -en $g; ./config.sh --enable IRDETO_GUESSING; echo -en $n; }
+IRDETO_GUESSING_off()	{ cd $svndir; echo -en $p; ./config.sh --disable IRDETO_GUESSING; echo -en $n; }
+
+ANTICASC()		{ cd $svndir; echo -en $g; ./config.sh --enable CS_ANTICASC; echo -en $n; }
+ANTICASC_off()		{ cd $svndir; echo -en $p; ./config.sh --disable CS_ANTICASC; echo -en $n; }
+
+DEBUG()			{ cd $svndir; echo -en $g; ./config.sh --enable WITH_DEBUG; echo -en $n; }
+DEBUG_off()		{ cd $svndir; echo -en $p; ./config.sh --disable WITH_DEBUG; echo -en $n; }
+
+MONITOR()		{ cd $svndir; echo -en $g; ./config.sh --enable MODULE_MONITOR; echo -en $n; }
+MONITOR_off()		{ cd $svndir; echo -en $p; ./config.sh --disable MODULE_MONITOR; echo -en $n; }
+
+WEBIF_LIVELOG()		{ cd $svndir; echo -en $g; ./config.sh --enable WEBIF_LIVELOG; echo -en $n; }
+WEBIF_LIVELOG_off()	{ cd $svndir; echo -en $g; ./config.sh --disable WEBIF_LIVELOG; echo -en $n; }
+
+WEBIF_JQUERY()		{ cd $svndir; echo -en $g; ./config.sh --enable WEBIF_JQUERY; echo -en $n; }
+WEBIF_JQUERY_off()	{ cd $svndir; echo -en $g; ./config.sh --disable WEBIF_JQUERY; echo -en $n; }
+
+SSL_static()		{
+			SSL;
+			ssl_lib='-Wl,-Bstatic -lssl -Wl,-Bdynamic';
+			sslsuffix='-ssl_st';
+			ssl_static_set="on";
+			libcrypto_static;
+			}
+
+SSL()			{
+			sslsuffix='-ssl';
+			lcsuffix='';
+			ssl='USE_SSL=1';
+			ssl_lib='-lssl';
+			cd $svndir; echo -en $g; ./config.sh --enable WITH_SSL; echo -en $n;
+			libcrypto_on;
+			ssl_set="YES";
+			}
+
+SSL_off()		{
+			cd $svndir; echo -en $p; ./config.sh --disable WITH_SSL; echo -en $n;
+			sslsuffix='';
+			ssl='';
+			ssl_lib='';
+			ssl_set='NO';
+			ssl_static_set="off";
+			}
+
+LB()			{ cd $svndir; echo -en $g; ./config.sh --enable WITH_LB; echo -en $n; }
+LB_off()		{ cd $svndir; echo -en $p; ./config.sh --disable WITH_LB; echo -en $n; }
+
+CACHEEX()		{ cd $svndir; echo -en $g; ./config.sh --enable CS_CACHEEX; echo -en $n; }
+CACHEEX_off()		{ cd $svndir; echo -en $p; ./config.sh --disable CS_CACHEEX; echo -en $n; }
+
+CW_CYCLE_CHECK()	{ cd $svndir; echo -en $g; ./config.sh --enable CW_CYCLE_CHECK; echo -en $n; }
+CW_CYCLE_CHECK_off()	{ cd $svndir; echo -en $p; ./config.sh --disable CW_CYCLE_CHECK; echo -en $n; }
+
+LCDSUPPORT()		{ cd $svndir; echo -en $g; ./config.sh --enable LCDSUPPORT; echo -en $n; }
+LCDSUPPORT_off()	{ cd $svndir; echo -en $p; ./config.sh --disable LCDSUPPORT; echo -en $n; }
+
+LEDSUPPORT()		{ cd $svndir; echo -en $g; ./config.sh --enable LEDSUPPORT; echo -en $n; }
+LEDSUPPORT_off()	{ cd $svndir; echo -en $p; ./config.sh --disable LEDSUPPORT; echo -en $n; }
+
+IPV6SUPPORT()		{ cd $svndir; echo -en $g; ./config.sh --enable IPV6SUPPORT; echo -en $n; }
+IPV6SUPPORT_off()	{ cd $svndir; echo -en $p; ./config.sh --disable IPV6SUPPORT; echo -en $n; }
+
+PROTO_on()		{ cd $svndir; echo -en $g; ./config.sh --enable protocols; echo -en $n; }
+PROTO_off()		{ cd $svndir; echo -en $p; ./config.sh --disable protocols; echo -en $n; }
+
+CAMD33()		{ cd $svndir; echo -en $g; ./config.sh --enable MODULE_CAMD33; echo -en $n; }
+CAMD33_off()		{ cd $svndir; echo -en $p; ./config.sh --disable MODULE_CAMD33; echo -en $n; }
+
+CAMD35()		{ cd $svndir; echo -en $g; ./config.sh --enable MODULE_CAMD35; echo -en $n; }
+CAMD35_off()		{ cd $svndir; echo -en $p; ./config.sh --disable MODULE_CAMD35; echo -en $n; }
+
+CAMD35_TCP()		{ cd $svndir; echo -en $g; ./config.sh --enable MODULE_CAMD35_TCP; echo -en $n; }
+CAMD35_TCP_off()	{ cd $svndir; echo -en $p; ./config.sh --disable MODULE_CAMD35_TCP; echo -en $n; }
+
+NEWCAMD()		{ cd $svndir; echo -en $g; ./config.sh --enable MODULE_NEWCAMD; echo -en $n; }
+NEWCAMD_off()		{ cd $svndir; echo -en $p; ./config.sh --disable MODULE_NEWCAMD; echo -en $n; }
+
+CCCAM()			{ cd $svndir; echo -en $g; ./config.sh --enable MODULE_CCCAM; echo -en $n; }
+CCCAM_off()		{ CCCSHARE_off; cd $svndir; echo -en $p; ./config.sh --disable MODULE_CCCAM; echo -en $n; }
+
+CCCSHARE()		{ cd $svndir; echo -en $g; ./config.sh --enable MODULE_CCCSHARE; echo -en $n; }
+CCCSHARE_off()		{ cd $svndir; echo -en $p; ./config.sh --disable MODULE_CCCSHARE; echo -en $n; }
+
+GBOX()			{ cd $svndir; echo -en $g; ./config.sh --enable MODULE_GBOX; echo -en $n; }
+GBOX_off()		{ cd $svndir; echo -en $p; ./config.sh --disable MODULE_GBOX; echo -en $n; }
+
+SCAM()			{ cd $svndir; echo -en $g; ./config.sh --enable MODULE_SCAM; echo -en $n; }
+SCAM_off()		{ cd $svndir; echo -en $p; ./config.sh --disable MODULE_SCAM; echo -en $n; }
+
+RADEGAST()		{ cd $svndir; echo -en $g; ./config.sh --enable MODULE_RADEGAST; echo -en $n; }
+RADEGAST_off()		{ cd $svndir; echo -en $p; ./config.sh --disable MODULE_RADEGAST; echo -en $n; }
+
+SERIAL()		{ cd $svndir; echo -en $g; ./config.sh --enable MODULE_SERIAL; echo -en $n; }
+SERIAL_off()		{ cd $svndir; echo -en $p; ./config.sh --disable MODULE_SERIAL; echo -en $n; }
+
+CONSTCW()		{ cd $svndir; echo -en $g; ./config.sh --enable MODULE_CONSTCW; echo -en $n; }
+CONSTCW_off()		{ cd $svndir; echo -en $p; ./config.sh --disable MODULE_CONSTCW; echo -en $n; }
+
+PANDORA()		{ cd $svndir; echo -en $g; ./config.sh --enable MODULE_PANDORA; echo -en $n; }
+PANDORA_off()		{ cd $svndir; echo -en $p; ./config.sh --disable MODULE_PANDORA; echo -en $n; }
+
+GHTTP()			{ cd $svndir; echo -en $g; ./config.sh --enable MODULE_GHTTP; echo -en $n; }
+GHTTP_off()		{ cd $svndir; echo -en $p; ./config.sh --disable MODULE_GHTTP; echo -en $n; }
+
+READERS_on()		{ cd $svndir; echo -en $g; ./config.sh --enable readers; echo -en $n; }
+READERS_off()		{ cd $svndir; echo -en $p; ./config.sh --disable readers; echo -en $n; }
+
+NAGRA()			{ cd $svndir; echo -en $g; ./config.sh --enable READER_NAGRA; echo -en $n; }
+NAGRA_off()		{ cd $svndir; echo -en $p; ./config.sh --disable READER_NAGRA; echo -en $n; }
+
+IRDETO()		{ cd $svndir; echo -en $g; ./config.sh --enable READER_IRDETO; echo -en $n; }
+IRDETO_off()		{ cd $svndir; echo -en $p; ./config.sh --disable READER_IRDETO; echo -en $n; }
+
+CONAX()			{ cd $svndir; echo -en $g; ./config.sh --enable READER_CONAX; echo -en $n; }
+CONAX_off()		{ cd $svndir; echo -en $p; ./config.sh --disable READER_CONAX; echo -en $n; }
+
+CRYPTOWORKS()		{ cd $svndir; echo -en $g; ./config.sh --enable READER_CRYPTOWORKS; echo -en $n; }
+CRYPTOWORKS_off()	{ cd $svndir; echo -en $p; ./config.sh --disable READER_CRYPTOWORKS; echo -en $n; }
+
+SECA()			{ cd $svndir; echo -en $g; ./config.sh --enable READER_SECA; echo -en $n; }
+SECA_off()		{ cd $svndir; echo -en $p; ./config.sh --disable READER_SECA; echo -en $n; }
+
+VIACCESS()		{ cd $svndir; echo -en $g; ./config.sh --enable READER_VIACCESS; echo -en $n; }
+VIACCESS_off()		{ cd $svndir; echo -en $p; ./config.sh --disable READER_VIACCESS; echo -en $n; }
+
+VIDEOGUARD()		{ cd $svndir; echo -en $g; ./config.sh --enable READER_VIDEOGUARD; echo -en $n; }
+VIDEOGUARD_off()	{ cd $svndir; echo -en $p; ./config.sh --disable READER_VIDEOGUARD; echo -en $n; }
+
+DRE()			{ cd $svndir; echo -en $g; ./config.sh --enable READER_DRE; echo -en $n; }
+DRE_off()		{ cd $svndir; echo -en $p; ./config.sh --disable READER_DRE; echo -en $n; }
+
+TONGFANG()		{ cd $svndir; echo -en $g; ./config.sh --enable READER_TONGFANG; echo -en $n; }
+TONGFANG_off()		{ cd $svndir; echo -en $p; ./config.sh --disable READER_TONGFANG; echo -en $n; }
+
+BULCRYPT()		{ cd $svndir; echo -en $g; ./config.sh --enable READER_BULCRYPT; echo -en $n; }
+BULCRYPT_off()		{ cd $svndir; echo -en $p; ./config.sh --disable READER_BULCRYPT; echo -en $n; }
+
+GRIFFIN()		{ cd $svndir; echo -en $g; ./config.sh --enable READER_GRIFFIN; echo -en $n; }
+GRIFFIN_off()		{ cd $svndir; echo -en $p; ./config.sh --disable READER_GRIFFIN; echo -en $n; }
+
+DGCRYPT()		{ cd $svndir; echo -en $g; ./config.sh --enable READER_DGCRYPT; echo -en $n; }
+DGCRYPT_off()		{ cd $svndir; echo -en $p; ./config.sh --disable READER_DGCRYPT; echo -en $n; }
+
+CARDREADERS_on()	{ cd $svndir; echo -en $g; ./config.sh --enable card_readers; echo -en $n; }
+CARDREADERS_off()	{ cd $svndir; echo -en $p; ./config.sh --disable card_readers; echo -en $n; }
+
+CR_PHOENIX()		{ cd $svndir; echo -en $g; ./config.sh --enable CARDREADER_PHOENIX; echo -en $n; }
+CR_PHOENIX_off()	{ cd $svndir; echo -en $p; ./config.sh --disable CARDREADER_PHOENIX; echo -en $n; }
+
+CR_INTERNAL()		{ cd $svndir; echo -en $g; ./config.sh --enable CARDREADER_INTERNAL; echo -en $n; }
+CR_INTERNAL_off()	{ cd $svndir; echo -en $p; ./config.sh --disable CARDREADER_INTERNAL; echo -en $n; }
+
+CR_SC8IN1()		{ cd $svndir; echo -en $g; ./config.sh --enable CARDREADER_SC8IN1; echo -en $n; }
+CR_SC8IN1_off()		{ cd $svndir; echo -en $p; ./config.sh --disable CARDREADER_SC8IN1; echo -en $n; }
+
+CR_MP35()		{ cd $svndir; echo -en $g; ./config.sh --enable CARDREADER_MP35; echo -en $n; }
+CR_MP35_off()		{ cd $svndir; echo -en $p; ./config.sh --disable CARDREADER_MP35; echo -en $n; }
+
+CR_SMARGO()		{ cd $svndir; echo -en $g; ./config.sh --enable CARDREADER_SMARGO; echo -en $n; }
+CR_SMARGO_off()		{ cd $svndir; echo -en $p; ./config.sh --disable CARDREADER_SMARGO; echo -en $n; }
+
+CR_DB2COM()		{ cd $svndir; echo -en $g; ./config.sh --enable CARDREADER_DB2COM; echo -en $n; }
+CR_DB2COM_off()		{ cd $svndir; echo -en $p; ./config.sh --disable CARDREADER_DB2COM; echo -en $n; }
+
+CR_STAPI()		{ cd $svndir; echo -en $g; ./config.sh --enable CARDREADER_STAPI; echo -en $n; }
+CR_STAPI_off()		{ cd $svndir; echo -en $p; ./config.sh --disable CARDREADER_STAPI; echo -en $n; }
+
+CR_STINGER()		{ cd $svndir; echo -en $g; ./config.sh --enable CARDREADER_STINGER; echo -en $n; }
+CR_STINGER_off()	{ cd $svndir; echo -en $p; ./config.sh --disable CARDREADER_STINGER; echo -en $n; }
+
+verbose_on()	{ debug=1; }
+
+check_sys()	{
+		clear; logo; answer="";
+		echo -e $txt_checksys1;
+
+		for p in $packages;
+		    do answer=$( which $p );
+			[ $p == "xz" ] && p="xz  ";
+			[ -f "$answer" ] && echo -e $wh $p"    \t" $b $txt_checksys3 $n $txt_checksys7 $wh$answer$n || echo -e $wh $p $r $txt_checksys4 $n;
+		    done;
+
+		answer="";
+		echo -e $txt_checksys2;
+
+		for nat in $npnative;
+		    do answer=$(dpkg-query -W -f='${Package}\n' "$nat");
+			[ "$answer" == "$nat" ] && echo -e $wh $nat $b $txt_checksys5 $n || echo -e $wh $nat $r $txt_checksys6 $n;
+		    done;
+		nli;
+		sleep 3;
+		}
+
+cfg_path()	{
+		confdir_pre="$conf_dir";
+		rsp=0; wsize_check;
+		cfgdir=$($inputbox_gui " ""$txt_cfg_path1 $conf_dir_backup \n $txt_cfg_path2 $conf_dir" 8 $[$mcols -4] "$conf_dir");
+		rsp=$?
+		case $rsp in
+		    0)
+			conf_dir=$cfgdir;
+			;;
+		    1)
+			conf_dir=$confdir_pre;
+			;;
+		    255)
+			conf_dir=$confdir_pre;
+			;;
+		esac
+
+		$infobox_gui "$txt_cfg_path3 $conf_dir" 5 72;
+		cd $rdir;
+		write_extra;
+		configure_menu;
+		}
+
+lib_path()	{
+
+		libsearchdir_pre=$libsearchdir;
+
+		if [ ${#libsearchdir} -lt 1 ]; then
+		    libsearchdir_txt="'not set'";
+		    libsearchdir_backup_txt="'not set'";
+		else
+		    libsearchdir_txt=$libsearchdir;
+		    libsearchdir_backup_txt=$libsearchdir_backup;
+		fi
+
+		rsp=0; wsize_check;
+		lsd=$($inputbox_gui " ""$txt_cfg_path1 $libsearchdir_backup_txt\n $txt_cfg_path2 $libsearchdir_txt" 8 $[$mcols -4] "$libsearchdir");
+		rsp=$?
+
+		case $rsp in
+		    0)
+			libsearchdir=$lsd;;
+		    1)
+			libsearchdir=$libsearchdir_pre;;
+		    255)
+			libsearchdir=$libsearchdir_pre;;
+		esac
+
+		if [ ${#libsearchdir} -lt 1 ]; then
+		    libsearchdir_txt="'not set'";
+		    libsearchdir_backup_txt="'not set'";
+		else
+		    libsearchdir_txt=$libsearchdir;
+		    libsearchdir_backup_txt=$libsearchdir_backup;
+		fi
+
+		$infobox_gui "$txt_lib_path1 $libsearchdir_txt" 5 72;
+		cd $rdir;
+		write_extra;
+		configure_menu;
+		}
+
+CUSTOM_SUFFIX()	{
+		rsp=0; wsize_check;
+		CN="$($inputbox_gui " oscam-svn`./config.sh -r`-????? \n $txt_custom_suffix" 8 $[$mcols -4])";
+		[ $? = 255 ] && CN="";
+		case "$CN" in
+		    "") CUSTOM_SUFFIX="not_set";;
+		    *)  CUSTOM_SUFFIX=$CN;;
+		esac;
+		oscam_name;
+		$infobox_gui "\Zb\Z1 $o_name" 5 72;
+		cd $rdir;
+		write_extra;
+		configure_menu;
+		}
+
+online_update()	{
+		getit $u2; wsize_check;
+		OSV=`wget -qO- $u/simplebuild |grep "SIMPLEVERSION="`;
+		OSVERSION=${OSV:15:4};
+		if [ ! "$SIMPLEVERSION" = "$OSVERSION" ]; then
+		    $yesnobox_gui "\n\Zb $txt_online_update1= \Z4$SIMPLEVERSION\Z0 | $txt_online_update2= \Z5$OSVERSION\Z0\n\n $txt_online_update3 ?" 9 $[$mcols -4];
+		    if [ "$?" == "0" ]; then
+			clear;
+			mv "$rdir/$0" "$rdir/simplebuild.old";
+			wget -O"$rdir/simplebuild" "$u/simplebuild" -q;
+			chmod 777 "$rdir/simplebuild";
+			clear;
+			cd $rdir;
+			./simplebuild menu;
+			exit;
+		    fi;
+		fi;
+		}
+
+conf_update()	{
+		getit $u2; wsize_check;
+		CVEXT=`wget -qO- $u/simplebuild.config |grep "CONFIGVER="`;
+		CVEREXT=${CVEXT:11:4};
+		LCONF=`grep ^CONFIGVER simplebuild.config`;
+		LOCONF=${LCONF:11:4};
+		if [ ! "$CVEREXT" = "$LOCONF" ]; then
+		    $yesnobox_gui "\n $txt_conf_update1= \Z4$LOCONF\Z0 | $txt_conf_update2= \Z5$CVEREXT\Z0\n\n $txt_conf_update3 ?" 9 $[$mcols -4];
+		    if [ "$?" == "0" ]; then
+			clear;
+			mv "$rdir/simplebuild.config" "$rdir/simplebuild.config.old";
+			wget -O "$rdir/simplebuild.config" "$u/simplebuild.config" -q;
+			clear;
+			cd $rdir
+			./simplebuild menu;
+			exit;
+		    fi;
+		fi;
+		}
+
+patch_off()	{
+		if [ "$patches" == "1" ]; then
+		    cd $svndir; p_files=""; p_count="0";
+		    p_files=`ls *.patch 2> /dev/null`
+		    p_count=`ls *.patch 2> /dev/null | wc -l`
+		    mbox 'AUTO_PATCH_SYSTEM';
+		    if [ "$p_count" != "0" ]; then
+			(echo -e "\n\n$p_count $txt_patch_off1";
+			for p_element in $p_files
+			do
+			    echo -e "\n$txt_patch_off2 $p_element";
+			    patch -p0 -R < $p_element;
+			    echo -e "\n$txt_patch_off3 $p_element $txt_patch_off4";
+			    echo -e "\n"; rm $p_element;
+			done | tee -a $rdir/build.log;) | $messagebox;
+			sleep 4;
+		    fi;
+		fi;
+		}
+
+patch_on()	{
+		if [ "$patches" == "1" ]; then
+		    if [ -d $rdir/patches ]; then
+			cd $rdir/patches; p_files=""; p_count="0"; ext_name="";
+			for i in *.diff; do mv "$i" "${i/.diff}".patch; done > /dev/null 2>&1;
+			p_files=`ls *.patch 2> /dev/null`
+			p_count=`ls *.patch 2> /dev/null | wc -l`
+			mbox 'AUTO_PATCH_SYSTEM';
+			if [ "$p_count" != "0" ]; then
+			    gfto_patch_fix;
+			    cd $svndir;
+			    for p_element in $p_files
+				do
+				    ext_name="$ext_name"-"`echo $p_element |sed 's/.patch//g'`";
+				done
+			    (echo -e "\n\n$p_count $txt_patch_on1";
+			    for p_element in $p_files
+				do
+				    cp "$rdir/patches/$p_element" $svndir;
+				    echo -e "\n$txt_patch_on2 $p_element";
+				    patch -p0 < $p_element;
+				    echo;
+				done | tee -a $rdir/build.log;) | $messagebox;
+				sleep 4;
+			fi;
+		    fi;
+		fi;
+		}
+
+tc_concheck()	{
+		ofz=`wget "$fpath/$tcname" --spider --server-response -O- 2>&1 | sed -ne '/Content-Length/{s/.*: //;p}'`;
+
+		if [ ! -f "$bdir/$tcname" ]; then
+		    cd $bdir;
+		    clear;
+		    logo;
+		    nli;
+		    echo -ne $g"\t$txt_con_check1 $tcname:     ";wget --progress=dot "$fpath/$tcname" 2>&1 | grep --line-buffered "%" | sed -u -e "s,\.,,g" | awk '{printf("\b\b\b\b%4s", $2)}';
+		    echo -ne $n;
+		    nli;
+		fi;
+
+		if [ -f "$bdir/$tcname" ]; then
+		    size_check "$bdir/$tcname";
+		    if [ ! $ofz == $lfz ]; then
+			echo -e $r"\n $txt_con_check1\n"$n;
+			rm "$bdir/$tcname";
+			clear;
+			logo;
+			nli;
+			echo -ne $g"\t$txt_con_check1 $tcname:     "$y;wget --progress=dot "$fpath/$tcname" 2>&1 | grep --line-buffered "%" | sed -u -e "s,\.,,g" | awk '{printf("\b\b\b\b%4s", $2)}';
+			echo -ne $n;
+			if [ ! "$second" == "loadonly" ]; then
+			    [ ! -d "$tcdir/$1" ] && mkdir "$tcdir/$1";
+			    cd "$tcdir/$1";
+			    xz -d "$bdir/$tcname" -c | tar -xv;
+			fi;
+		    else
+			if [ ! "$second" == "loadonly" ]; then
+			    mkdir "$tcdir/$1";
+			    cd "$tcdir/$1";
+			    xz -d "$bdir/$tcname" -c | tar -xv;
+			fi;
+			clear;
+			logo;
+			echo -e "\n\t $b$tcname$n $txt_found_in \n\t$y$bdir$n\n"
+		    fi;
+		fi;
+
+		if [ ! -f "$bdir/$tcname" ]; then
+		    bye;
+		    nli;
+		    echo -e $r " $txt_con_check3 $tcname " $n;
+		    nli;
+		    exit;
+		fi;
+
+		target="$1";
+		}
+
+get_tc()	{
+		cd $bdir;wsize_check;
+		[ -f $2 ] && rm $2;
+		wget --progress=bar:force "$1/$2" 2>&1 | while read -d "%" X; do sed 's:^.*[^0-9]\([0-9]*\)$:\1:' <<< "$X"; done | $gauge_gui "  $txt_DOWNLOAD $2 = $result" 6 $[$mcols -4]
+		}
+
+configure_menu(){
+		#wsize_check;
+		selected=$($menubox_gui		\
+		--title "$txt_configure_title"	\
+		--menu " \n$txt_configure_menu0     : $target\n "\
+		16 75 8\
+		MODULES		"$txt_configure_menu1"	\
+		FEATURES	"$txt_configure_menu2"	\
+		CONF_DIR	"$txt_configure_menu3"	\
+		LIB_DIR		"$txt_configure_menu4"	\
+		CUSTOM		"$txt_configure_menu6"	\
+		STATIC_OPTIONS	"$txt_lc"		\
+		Save		"$txt_configure_menu7"	);
+
+		[ $? = 255 ] && cp -f "$svndir/$cn" "$cdir/$target.$cn.saved" && b_menu;
+		case $selected in
+		    Save)	cp -f "$svndir/$cn" "$cdir/$target.$cn.saved"; b_menu;;
+		    MODULES)		org_config;;
+		    CONF_DIR)		cfg_path;;
+		    LIB_DIR)		lib_path;;
+		    CUSTOM)		CUSTOM_SUFFIX;;
+		    STATIC_OPTIONS)	STATIC_OPTIONS;;
+		    FEATURES)		extra;;
+		esac;
+		}
+
+target_check()	{
+		for pre in $commandlineparams;
+		do
+		for all in $allchains_list
+		    do
+			if [ $all == $pre ]; then
+			    target=$all;
+			fi
+		    done
+		[ "$pre" == "native" ] && target="$native";
+		[ "$pre" == "upload" ] && skipconfigcheck=1;
+		[ "$pre" == "checkout" ] && skipconfigcheck=1;
+		done
+		}
+
+cfg_check()	{
+		target_check;
+		if [ $skipconfigcheck == 0 ]; then
+		clear; oscam;
+		for e in $commandlineparams;
+		do
+
+		if [ "$e" == "default" ]; then
+		    if [ "$cfg_is_set" == "0" ]; then
+			if [ -f "$svndir/$cn" ]; then
+			    dmode=`$svndir/config.sh -R`;
+			    echo -e "$g\n $txt_cmdline3 $svndir/$cn $wh";
+			    nli;
+			    cfg_is_set=1
+			    no_extra_use=1;
+			    no_static_use=1;
+			    patches_off;
+			    pcsc_off;
+			    usb_off;
+			    pack_off;
+			fi;
+		    fi;
+		fi;
+
+		if [ "$e" == "custom" ]; then
+		    if [ "$cfg_is_set" == "0" ]; then
+			if [ -f "$cdir/$target.$cn.custom" ]; then
+			    cp -f "$cdir/$target.$cn.custom" "$svndir/$cn";
+			    echo -e "$g\n $txt_cmdline4 $target.$cn.custom $wh";
+			    nli;
+			    cfg_is_set=2;
+			else
+			    if [ -f "$svndir/$cn" ]; then
+				dmode=`$svndir/config.sh -R`;
+				echo -e "$p\n $txt_cmdline6 $wh";
+				nli;
+				cfg_is_set=1;
+			    fi;
+			fi;
+		    fi;
+		fi;
+
+		if [ "$e" == "saved" ]; then
+		    if [ "$cfg_is_set" == "0" ]; then
+			if [ -f "$cdir/$target.$cn.saved" ]; then
+			    cp -f "$cdir/$target.$cn.saved" "$svndir/$cn";
+			    echo -e "$g\n $txt_cmdline5 $target.$cn.saved $wh";
+			    nli;
+			    cfg_is_set=3
+			else
+			    if [ -f "$svndir/$cn" ]; then
+				dmode=`$svndir/config.sh -R`;
+				echo -e "$p\n $txt_cmdline7 $wh";
+				nli;
+				cfg_is_set=1;
+			    fi;
+			fi;
+		    fi;
+		fi;
+		done
+
+		if [ "$cfg_is_set" == "0" ]; then
+		    if [ -f "$cdir/$target.$cn.saved" ]; then
+			cp -f "$cdir/$target.$cn.saved"  "$svndir/$cn";
+			echo -e "$g\n $txt_cmdline5 $target.$cn.saved $wh";
+			nli;
+			cfg_is_set=3
+		    else
+			if [ -f "$svndir/$cn" ]; then
+			    dmode=`$svndir/config.sh -R`;
+			    echo -e "$p\n $txt_cmdline7 $wh";
+			    nli;
+			    cfg_is_set=1;
+			fi;
+		    fi;
+		fi;
+		fi;
+		}
+
+cmdline()	{
+		cmd_clear;
+		getrev;
+		[ ! "$second" == "loadonly" ] && [ ! "$first" == "help" ] && cfg_check;
+		s_path;
+		[ ! -d "$rdir/patches" ] && mkdir "$rdir/patches";
+		[ ! -d "$rdir/archiv" ]  && mkdir "$rdir/archiv";
+		[ ! -d $tcdir ]          && mkdir $tcdir;
+		[ ! -d $upxdir ]         && mkdir $upxdir;
+		[ ! -d $bdir ]           && mkdir $bdir;
+		[ ! -d $cdir ]           && mkdir $cdir;
+		for param in "$@";
+		do
+
+		case $param in
+		reset_all)
+		    rbs;
+		    exit;;
+		cedit)
+		    cedit;
+		    bye;
+		    exit;;
+		lang_select)
+		    lang_select;
+		    bye;
+		    exit;;
+		clean)
+		    rminimal;
+		    exit;;
+		upload)
+		    upload_cam $2;
+		    exit;;
+		checkout)
+		    clear;
+		    echo -e $b;
+		    logo;
+		    nli;
+		    [ -d oscam-svn ] && rm -rf oscam-svn && echo -e $n"\t$txt_old oscam-svn$p $txt_rm"$n;
+
+		    if [ ! $2 = "" ]; then
+			#if [ $2 -gt "6999" ]; then
+			    echo -e "\t$txt_cmdline1 r$2 $txt_wait" ;
+			    echo -e "\t$(svn co $trunkurl -r$2 oscam-svn |grep 'Re' |grep 'ion')";
+			#else
+			#    echo -e "$\t$txt_cmdline2 $txt_wait" ;
+			#    echo -e "\t$(svn co $trunkurl oscam-svn |grep 'Re' |grep 'ion')";
+			#fi
+		    else
+			echo -e "\t$txt_cmdline2 $txt_wait" ;
+			svn -q co $trunkurl oscam-svn;
+			echo -ne "\t$txt_disksvn";svnversion oscam-svn
+		    fi
+
+		    con_stapicheck;
+		    con_toolcheck;
+		    nli;
+		    exit;;
+		checksys)
+		    check_sys;
+		    exit;;
+		debinstall)
+		    install_sys;
+		    exit;;
+		ubu14install)
+		    ubu14install_sys;
+		    exit;;
+		help)
+		    usage;
+		    exit;;
+		sh4)
+		    con_func $param;;
+		sh_4)
+		    con_func $param;;
+		cool)
+		    con_func $param;
+		    coolapi_on;;
+		mca)
+		    con_func $param;
+		    mcaoption='USE_MCA=1';;
+		mipsel)
+		    con_func $param;;
+		mipsel-all_fpu)
+		    con_func $param;;
+		arm_v7)
+		    con_func $param;;
+		arm_cortex_a9)
+		    con_func $param;
+		    armoption='USE_SU980=1';;
+		arm-2009q3)
+		    con_func $param;;
+		azbox)
+		    con_func $param;;
+		mipsoe20)
+		    con_func $param;;
+		dreambox_fpu)
+		    con_func $param;;
+		pogoplug)
+		    con_func $param;;
+		ppcold)
+		    con_func $param;;
+		solo4k)
+		    con_func $param;;
+		powerpc)
+		    con_func $param;;
+		marv_6281)
+		    con_func $param;;
+		brcm63xx_other)
+		    con_func $param;;
+		ppc_eglibc)
+		    con_func $param;;
+		fritz33xx)
+		    con_func $param;;
+		fritz71xx)
+		    con_func $param;;
+		fritz72xx)
+		    con_func $param;;
+		fritz73xx)
+		    con_func $param;;
+		fritz74xx)
+		    con_func $param;;
+		fritz73xxOS60)
+		    con_func $param;;
+		fritz74xxOS60)
+		    con_func $param;;
+		fritz73xxOS62)
+		    con_func $param;;
+		fritz74xxOS62)
+		    con_func $param;;
+		fritz74xxOS65)
+		    con_func $param;;
+		openpli40)
+		    con_func $param;;
+		openwrt24)
+		    con_func $param;;
+		openwrt26)
+		    con_func $param;;
+		openwrt1209aa)
+		    con_func $param;;
+		openwrt_ppc_48)
+		    con_func $param;;
+		brcm63xx)
+		    con_func $param;;
+		dockstar)
+		    con_func $param;;
+		rasb_hard)
+		    con_func $param;;
+		rasb_soft)
+		    con_func $param;;
+		ddwrt346)
+		    con_func $param;;
+		ddwrt410)
+		    con_func $param;;
+		fonera)
+		    con_func $param;;
+		nslu2open)
+		    con_func $param;;
+		tplink)
+		    con_func $param;;
+		sheevaplug)
+		    con_func $param;;
+		syn_ds3612xs)
+		    con_func $param;;
+		samsungtv)
+		    con_func $param;;
+		tplink_backfire)
+		    con_func $param;;
+		syn_atom)
+		    con_func $param;;
+		native)
+		    [ ! "$tfound" == "1" ] && target="$native" && native_on && getrev && check_extra;;
+		native32)
+		    [ ! "$tfound" == "1" ] && target="$native32" && native32_on && getrev && check_extra;;
+		default)
+		    cfg_check;;
+		custom)
+		    cfg_check;;
+		saved)
+		    cfg_check;;
+		shortname)
+		    shortname;;
+		patches_on)
+		    patches_on;;
+		patches_off)
+		    patches_off;;
+		usb_on)
+		    usb_on;
+		    libusb_non_static=1;;
+		usb_static)
+		    usb_static;;
+		usb_off)
+		    usb_off;;
+		pack_on)
+		    pack_on;;
+		pack_off)
+		    pack_off;;
+		pcsc_on)
+		    pcsc_on;
+		    pcsc_non_static=1;;
+		pcsc_off)
+		    pcsc_off;;
+		stapi_on)
+		    stapi_on;;
+		stapi_off)
+		    stapi_off;;
+		coolapi_on)
+		    coolapi_on;;
+		coolapi_off)
+		    coolapi_off;;
+		compress_on)
+		    compress_on;;
+		compress_off)
+		    compress_off;;
+		libcrypto_on)
+		    libcrypto_on;
+		    libcrypto_non_static=1;;
+		libcrypto_static)
+		    libcrypto_console_static_on="1";
+		    libcrypto_static;;
+		libcrypto_off)
+		    libcrypto_off;;
+		ADDONS_on)
+		    ADDONS_on;;
+		WEBIF)
+		    WEBIF;;
+		CLOCKFIX)
+		    CLOCKFIX;;
+		DVBAPI)
+		    DVBAPI;;
+		DVBAPI_SAMYGO)
+		    DVBAPI_SAMYGO;;
+		IRDETO_GUESSING)
+		    IRDETO_GUESSING;;
+		ANTICASC)
+		    ANTICASC;;
+		DEBUG)
+		    DEBUG;;
+		MONITOR)
+		    MONITOR;;
+		WEBIF_LIVELOG)
+		    WEBIF_LIVELOG;;
+		WEBIF_JQUERY)
+		    WEBIF_JQUERY;;
+		SSL)
+		    SSL;
+		    ssl_non_static=1;;
+		SSL_static)
+		    SSL_static;;
+		SSL_off)
+		    SSL_off;;
+		LB)
+		    LB;;
+		CACHEEX)
+		    CACHEEX;;
+		CW_CYCLE_CHECK)
+		    CW_CYCLE_CHECK;;
+		LCDSUPPORT)
+		    LCDSUPPORT;;
+		LEDSUPPORT)
+		    LEDSUPPORT;;
+		IPV6SUPPORT)
+		    IPV6SUPPORT;;
+		TOUCH)
+		    TOUCH;;
+		ADDONS_off)
+		    ADDONS_off;;
+		WEBIF_off)
+		    WEBIF_off;;
+		CLOCKFIX_off)
+		    CLOCKFIX_off;;
+		DVBAPI_off)
+		    DVBAPI_off;;
+		DVBAPI_SAMYGO_off)
+		    DVBAPI_SAMYGO_off;;
+		IRDETO_GUESSING_off)
+		    IRDETO_GUESSING_off;;
+		ANTICASC_off)
+		    ANTICASC_off;;
+		DEBUG_off)
+		    DEBUG_off;;
+		MONITOR_off)
+		    MONITOR_off;;
+		WEBIF_LIVELOG_off)
+		    WEBIF_LIVELOG_off;;
+		WEBIF_JQUERY_off)
+		    WEBIF_JQUERY_off;;
+		SSL_off)
+		    SSL_off;;
+		LB_off)
+		    LB_off;;
+		CACHEEX_off)
+		    CACHEEX_off;;
+		CW_CYCLE_CHECK_off)
+		    CW_CYCLE_CHECK_off;;
+		LCDSUPPORT_off)
+		    LCDSUPPORT_off;;
+		LEDSUPPORT_off)
+		    LEDSUPPORT_off;;
+		IPV6SUPPORT_off)
+		    IPV6SUPPORT_off;;
+		TOUCH_off)
+		    TOUCH_off;;
+		PROTO_on)
+		    PROTO_on;;
+		CAMD33)
+		    CAMD33;;
+		CAMD35)
+		    CAMD35;;
+		CAMD35_TCP)
+		    CAMD35_TCP;;
+		NEWCAMD)
+		    NEWCAMD;;
+		CCCAM)
+		    CCCAM;;
+		CCCSHARE)
+		    CCCSHARE;;
+		GBOX)
+		    GBOX;;
+		SCAM)
+		    SCAM;;
+		RADEGAST)
+		    RADEGAST;;
+		SERIAL)
+		    SERIAL;;
+		CONSTCW)
+		    CONSTCW;;
+		PANDORA)
+		    PANDORA;;
+		GHTTP)
+		    GHTTP;;
+		PROTO_off)
+		    PROTO_off;;
+		CAMD33_off)
+		    CAMD33_off;;
+		CAMD35_off)
+		    CAMD35_off;;
+		CAMD35_TCP_off)
+		    CAMD35_TCP_off;;
+		NEWCAMD_off)
+		    NEWCAMD_off;;
+		CCCAM_off)
+		    CCCAM_off;;
+		CCCSHARE_off)
+		    CCCSHARE_off;;
+		GBOX_off)
+		    GBOX_off;;
+		SCAM_off)
+		    SCAM_off;;
+		RADEGAST_off)
+		    RADEGAST_off;;
+		SERIAL_off)
+		    SERIAL_off;;
+		CONSTCW_off)
+		    CONSTCW_off;;
+		PANDORA_off)
+		    PANDORA_off;;
+		GHTTP_off)
+		    GHTTP_off;;
+		READERS_on)
+		    READERS_on;;
+		NAGRA)
+		    NAGRA;;
+		IRDETO)
+		    IRDETO;;
+		CONAX)
+		    CONAX;;
+		CRYPTOWORKS)
+		    CRYPTOWORKS;;
+		SECA)
+		    SECA;;
+		VIACCESS)
+		    VIACCESS;;
+		VIDEOGUARD)
+		    VIDEOGUARD;;
+		DRE)
+		    DRE;;
+		TONGFANG)
+		    TONGFANG;;
+		BULCRYPT)
+		    BULCRYPT;;
+		GRIFFIN)
+		    GRIFFIN;;
+		DGCRYPT)
+		    DGCRYPT;;
+		READERS_off)
+		    READERS_off;;
+		NAGRA_off)
+		    NAGRA_off;;
+		IRDETO_off)
+		    IRDETO_off;;
+		CONAX_off)
+		    CONAX_off;;
+		CRYPTOWORKS_off)
+		    CRYPTOWORKS_off;;
+		SECA_off)
+		    SECA_off;;
+		VIACCESS_off)
+		    VIACCESS_off;;
+		VIDEOGUARD_off)
+		    VIDEOGUARD_off;;
+		DRE_off)
+		    DRE_off;;
+		TONGFANG_off)
+		    TONGFANG_off;;
+		BULCRYPT_off)
+		    BULCRYPT_off;;
+		GRIFFIN_off)
+		    GRIFFIN_off;;
+		DGCRYPT_off)
+		    DGCRYPT_off;;
+		CARDREADERS_on)
+		    CARDREADERS_on;;
+		CR_PHOENIX)
+		    CR_PHOENIX;;
+		CR_INTERNAL)
+		    CR_INTERNAL;;
+		CR_SC8IN1)
+		    CR_SC8IN1;;
+		CR_MP35)
+		    CR_MP35;;
+		CR_SMARGO)
+		    CR_SMARGO;;
+		CR_DB2COM)
+		    CR_DB2COM;;
+		CR_STAPI)
+		    CR_STAPI;;
+		CR_STINGER)
+		    CR_STINGER;;
+		CARDREADERS_off)
+		    CARDREADERS_off;;
+		CR_PHOENIX_off)
+		    CR_PHOENIX_off;;
+		CR_INTERNAL_off)
+		    CR_INTERNAL_off;;
+		CR_SC8IN1_off)
+		    CR_SC8IN1_off;;
+		CR_MP35_off)
+		    CR_MP35_off;;
+		CR_SMARGO_off)
+		    CR_SMARGO_off;;
+		CR_DB2COM_off)
+		    CR_DB2COM_off;;
+		CR_STAPI_off)
+		    CR_STAPI_off;;
+		CR_STINGER_off)
+		    CR_STINGER_off;;
+		ALL_on)
+		    ALL_on;;
+		ALL_off)
+		    ALL_off;;
+		verbose)
+		    verbose_on;;
+		loadonly)
+		    loadonly=1;
+		    exit;;
+		*)
+		    usage;
+		    exit;;
+		esac;
+		done;
+		cmd_build;
+		exit;
+		}
+
+gfto_patch_fix(){
+		patchfiles=./*.patch
+		for f in $patchfiles
+		do
+		    cat "$f" |sed 's/a\/oscam/oscam/' |sed 's/b\/oscam/oscam/' |sed 's/ oscam-svn\// /' >"$f.1";
+		    cat "$f.1" |sed 's/a\/oscam/oscam/' |sed 's/b\/oscam/oscam/' |sed 's/ oscam-svn\// /' >"$f.2";
+		    rm "$f.1"; mv "$f.2" "$f"
+		done
+		}
+
+pre_build()	{
+		cd $svndir;
+
+		if [ "$patches" == "1" ]; then
+		    p_c=`ls *.patch 2> /dev/null | wc -l`
+		    if [ "$p_c" != "0" ]; then
+			clear;
+			logo;
+			echo -e $p"\n\n       $txt_cmd_build1\n"$n;
+			rm -rf $rdir/oscam-svn;
+			[ ! -d $rdir/oscam-svn ] && echo -e $g"       $txt_cmd_build2\n"$n;
+			exit;
+		    fi;
+
+		    if [ -d $rdir/patches ]; then
+			cd "$rdir/patches";
+			for i in *.diff; do mv "$i" "${i/.diff}".patch; done > /dev/null 2>&1;
+			echo -e $g;
+			p_c=`ls *.patch 2> /dev/null | wc -l`;
+
+			if [ "$p_c" != "0" ]; then
+			    gfto_patch_fix; ext_name="";
+			    p_f=`ls *.patch 2> /dev/null`
+			    null=$(dos2unix *.patch 2> /dev/null);
+			    nli;
+			    cp *.patch $svndir;
+			    cd $svndir;
+			    echo -e "  $txt_cmd_build3";
+			    echo -e "  $p_c $txt_cmd_build4";
+			    for p_element in $p_f
+			    do
+				ext_name="$ext_name"-"`echo $p_element |sed 's/.patch//g'`";
+				echo -e "\n  $txt_cmd_build5 $p_element\n";
+				echo "patch -p0 < $p_element"
+				patch -p0 < $p_element;
+			    done
+			fi;
+		    fi;
+		fi;
+		cc='-W -Wall -Wshadow -Wredundant-decls -Wstrict-prototypes -Wold-style-definition';
+		verbose='';
+		[ "$debug" == "1" ] && verbose='V=1' || cc='-Wall'; # cc='-w';
+		check_static;
+		check_ssl;
+		check_webif;
+		for nu in $no_usb
+		do
+		    [ "$nu" == "$target" ] && usb_off;
+		done
+
+		for np in $no_pcsc
+		do
+		    [ "$np" == "$target" ] && pcsc_off;
+		done
+
+		if [ "$ssl_non_static" == "1" ]; then
+		    SSL;
+		    libcrypto_on;
+		else
+		    if [ "$ssl_static_set" == 'on' ];then
+			if [ "$ssl" == "USE_SSL=1" ];then
+			    SSL_static;
+			    libcrypto_static;
+			fi;
+		    fi;
+		fi;
+
+		if [ "$libcrypto_non_static" == "1" ]; then
+		    libcrypto_on
+		else
+		    if [ "$libcrypto_console_static_on" == '1' ];then
+			if [ "$libcrypto" == "USE_LIBCRYPTO=1" ];then
+			    libcrypto_static;
+			fi;
+		    fi;
+		fi;
+
+		if [ "$libusb_non_static" == "1" ]; then
+		    usb_on
+		else
+		    if [ "$libusb_static_set" == 'on' ];then
+			if [ "$libusb" == "USE_LIBUSB=1" ];then
+			    usb_static;
+			fi;
+		    fi;
+		fi;
+
+		[ $shortname_set == "0" ] && oscam_name || o_name=$shortname;
+		[ ${#libsearchdir} -gt 2 ] && XLD="-Wl,-rpath,$libsearchdir" || XLD='';
+
+		echo -e $g"\n $txt_cmd_build6\n$n";
+		make distclean;
+		echo -e $b"\n $txt_build $o_name $txt_with $cpus CPU-Thread(s)\n"$n;
+
+		[ "$target" == "$native" ] && ELDVAR="$lz -Wl,-rpath,$libsearchdir"  || ELDVAR="-Wl,-rpath,$libsearchdir -Wl,-rpath,/usr/local/lib -Wl,-rpath,/usr/lib -L$buildroot/lib ";
+		export STAGING_DIR=$buildroot;
+		}
+
+cmd_build()	{
+[ ! -d $rdir/oscam-svn ] && rescue_checkout;
+getrev; pre_build; timer_start;
+log_name="$(date +%F).$(date +%X).$target.log";
+log_name=`echo $log_name |sed 's/:/./g'`;
+oscam >"$rdir/logs/$log_name";
+make $libusb $pcsc $ssl $libcrypto -j$cpus CC_WARN="$cc" \
+CONF_DIR=$conf_dir OSCAM_BIN=../archiv/$o_name CROSS=$CROSS \
+CC_OPTS="-Os -ggdb -pipe -ffunction-sections -fdata-sections -finline-functions -fno-short-enums -freg-struct-return" EXTRA_LDFLAGS="$ELDVAR" \
+LIBCRYPTO_LIB="$libcrypto_lib" SSL_LIB="$ssl_lib" LIBUSB_LIB="$libusb_lib" PCSC_LIB="$pcsc_lib" \
+$verbose $stapi $coolapi $azapi $mcaoption $armoption 2>&1 |tee -a "$rdir/logs/$log_name" | grep --line-buffered '^+\|^CC\|UseFlags\|  CONF_DIR =\|Binary\|LINK\|STRIP\|BUILD\|Addons\|Protocols\|Readers\|CardRdrs\|^/';
+timer_stop; timer_calc; bt="[ $txt_buildtime $[$Tcalc / 60] min(s) $[$Tcalc % 60] secs ";
+[ "$deldebug" == "1" ] && [ -f "$rdir/archiv/$o_name.debug" ] && rm "$rdir/archiv/$o_name.debug";
+
+		if [ -f "$rdir/archiv/$o_name" ]; then
+		    clear;
+		    logo 2>&1 |tee -a "$rdir/logs/$log_name";
+		    fsize=$(ls -lah "$rdir/archiv/$o_name" |awk '{print $5}')
+		    printf "\n\t%-40s\n" "$bt(`date`) ]" 2>&1 |tee -a "$rdir/logs/$log_name";
+		    echo -e "$g";
+		    printf "\t%-40s\n" "$o_name $fsize" "$txt_create $rdir/archiv/" 2>&1 |tee -a "$rdir/logs/$log_name";
+		    echo -e "$n";
+		    
+		fi;
+
+		[ ! $target == "sh4"  ] && [ ! $target == "sh_4"  ] && compress_build con;
+		[ $pack_set == "YES" ] && pack_cam_con $o_name;
+
+		if [ "$patches" == "1" ]; then
+		    echo -e $y;
+		    cd $svndir;
+		    p_c="0";
+		    p_c=`ls *.patch 2> /dev/null | wc -l`;
+		    if [ "$p_c" != "0" ]; then
+			p_f=`ls *.patch 2> /dev/null`;
+			echo -e "  $txt_cmd_build10";
+			echo -e "  $p_c $txt_cmd_build11";
+			for p_element in $p_f
+			do
+			echo -e "\n $txt_patch_off2 $p_element\n";
+			patch -p0 -R < $p_element;
+			rm -f $p_element;
+		    done
+		    fi;
+		fi;
+
+		echo -e $n;
+		exit;
+		}
+
+tc_check()	{
+		mbox "$1";
+
+		if [ -d "$tcdir/$1" ]; then
+		    if [ "$intcheck" == "1" ]; then
+			dirfilesize=`du -bs |awk '{print $1}'`;
+			if [ ! "$dirfilesize" == "$confdirfilesize" ]; then
+			    rm -rf "$tcdir/$1";
+			fi;
+		    tcf_check $1;
+		    fi;
+		else
+		    tcf_check $1;
+		fi;
+
+		target="$1";
+		}
+
+stapicheck()	{
+		if [ ! -d "$svndir/stapi" ]; then
+		    mkdir "$svndir/stapi";
+		    cd "$svndir/stapi";
+		    wget "$fpath/$sname" -q;
+		    xz -d $sname -c | tar -x;
+		    if [ ! -f "$svndir/stapi/liboscam_stapi.a" ]; then
+			$infobox_gui "\Zb\Z1 $txt_no_stapi" 6 70;
+		    fi;
+		fi;
+
+		if [ ! -f "$svndir/stapi/liboscam_stapi.a" ]; then
+		    cd "$svndir/stapi/";
+		    wget "$fpath/$sname" -q;
+		    xz -d $sname -c | tar -x;
+		    if [ ! -f "$svndir/stapi/liboscam_stapi.a" ]; then
+			$infobox_gui "\Zb\Z1 $txt_no_stapi" 6 70;
+		    fi;
+		fi;
+		}
+
+con_stapicheck(){
+		if [ ! -d "$svndir/stapi" ]; then
+		    mkdir "$svndir/stapi";
+		    cd "$svndir/stapi";
+		    wget "$fpath/$sname" -q;
+		    xz -d $sname -c | tar -x;
+		    if [ ! -f "$svndir/stapi/liboscam_stapi.a" ]; then
+			echo -e $r"\n $txt_no_stapi$n";
+		    fi;
+		fi;
+
+		if [ ! -f "$svndir/stapi/liboscam_stapi.a" ]; then
+		    cd "$svndir/stapi/";
+		    wget "$fpath/$sname" -q;
+		    xz -d $sname -c | tar -x;
+		    if [ ! -f "$svndir/stapi/liboscam_stapi.a" ]; then
+			echo -e $r"\n $txt_no_stapi"$n;
+		    fi;
+		fi;
+		}
+
+con_toolcheck(){
+		getit $t2;
+		cd "$upxdir";
+
+		if [ ! -f "upx32bit" ]; then
+		    [ ! -f "$u" ] && wget "$fpath/$u" -q;
+		    xz -d $u -c | tar -x;
+		fi;
+
+		if [ ! -f "upx64bit" ]; then
+		    [ ! -f "$u" ] && wget "$fpath/$u" -q;
+		    xz -d $u -c | tar -x;
+		fi;
+
+		if [ ! -f "upxarmeb" ]; then
+		    [ ! -f "$u" ] && wget "$fpath/$u" -q;
+		    xz -d $u -c | tar -x;
+		fi;
+		}
+
+build_line()	{
+		oscam >>$rdir/build.log;
+		echo -e "">>$rdir/build.log;
+		echo -e " BUILD LINE:">>$rdir/build.log;
+		echo -e " -----------">>$rdir/build.log;
+		echo -e " make -j$cpus\n CROSS = $CROSS\n EXTRA_LDFLAGS = $xld\n conf_dir = $conf_dir libdir = $libdir" >>$rdir/build.log;
+		echo -e " libusb = $libusb\n pcsc = $pcsc\n st = $st\n pcscflags = $pcscflags">>$rdir/build.log;
+		echo -e " build-oscam = $o_name \n">>$rdir/build.log;
+		}
+
+compress_build(){
+		if [ ! $target == "sh4"  ]; then
+		if [ ! $target == "sh_4"  ]; then
+
+		if [ $compr_set == "YES" ]; then
+		    if [ -f "$upxdir/active" ]; then
+			source "$upxdir/active";
+			cd "$rdir/archiv";
+			$upxdir/$upxbin -q -9 $o_name |grep oscam |awk '{print "cmd_build7="$1"\ncmd_build8="$3"\ncmd_build9="$4}'>/tmp/result && cd $rdir
+			if [ -f /tmp/result ]; then
+			    source /tmp/result;
+			    compress_format="%-30s = %-7s\n"
+				cmess=$(printf "$compress_format"\
+				"\t$txt_cmd_build8\t\t" "$((cmd_build8/ 10**3)) Kb\n"\
+				"\t$txt_cmd_build9\t" "$cmd_build9");
+
+			    if [ "$1" == "con" ];then
+				echo -e $cmess 2>&1 |tee -a "$rdir/logs/$log_name";
+			    else
+				$menubox_gui --title "$txt_cmd_build_title" --msgbox "\n\
+				$txt_cmd_build8 = $((cmd_build8/ 10**3)) Kb\n\
+				$txt_cmd_build9 = $cmd_build9" 9 60;
+			    fi;
+			rm -rf /tmp/result;
+			fi;
+		    fi;
+		fi;
+
+		fi;
+		fi;
+		}
+
+pre_build_menu(){
+		cd $svndir;
+		
+		[ "$patches" == "1" ] && patch_on;
+		cc='-W -Wall -Wshadow -Wredundant-decls -Wstrict-prototypes -Wold-style-definition';
+		verbose='';
+		[ "$debug" == "1" ] && verbose='V=1' || cc='-w';
+
+		check_ssl; check_webif; check_static;
+
+		for nu in $no_usb
+		do
+		    [ "$nu" == "$target" ] && usb_off;
+		done
+
+		for np in $no_pcsc
+		do
+		    [ "$np" == "$target" ] && pcsc_off;
+		done
+
+		[ "$ssl_static_set" == 'on' ]       && SSL_static;
+		[ "$libusb_static_set" == 'on' ]    && usb_static;
+		[ "$libcrypto_static_set" == 'on' ] && libcrypto_static;
+
+		[ $shortname_set == "0" ] && oscam_name || o_name=$shortname;
+		make distclean 2>&1 >/dev/null;
+		export STAGING_DIR=$buildroot;
+		[ "$target" == "$native" ] && CROSS='' && ELDVAR="$lz -Wl,-rpath,$libsearchdir"  || ELDVAR="-Wl,-rpath,$libsearchdir -Wl,-rpath,/usr/local/lib -Wl,-rpath,/usr/lib -L$buildroot/lib ";
+		} 
+
+build_cam()	{
+
+		pre_build_menu;
+
+		if  [ $debug == 0 ]; then
+		    touch "$rdir/build.log";
+		    [ ! $CUSTOM_SUFFIX == "not_set" ] && o_name $CUSTOM_SUFFIX;
+		    mbox "$o_name";
+		    timer_start;
+		    ( oscam; make $libusb $pcsc $ssl $libcrypto -j$cpus CC_WARN="$cc" CC_OPTS="-Os -ggdb -pipe -ffunction-sections -fdata-sections" CONF_DIR=$conf_dir OSCAM_BIN=../archiv/$o_name CROSS=$CROSS EXTRA_LDFLAGS="$ELDVAR" LIBCRYPTO_LIB="$libcrypto_lib" SSL_LIB="$ssl_lib" LIBUSB_LIB="$libusb_lib" PCSC_LIB="$pcsc_lib" $verbose $stapi $coolapi $azapi $mcaoption $armoption 2>&1 |tee -a "$rdir/build.log" | grep --line-buffered '^+\|^CC\|UseFlags\|  CONF_DIR =\|Binary\|LINK\|STRIP\|BUILD\|Addons\|Protocols\|Readers\|CardRdrs\|^/' ) | $messagebox;
+		    timer_stop;
+		    timer_calc;
+
+		    if [ -f "$rdir/archiv/$o_name" ];
+		    then
+			bt=" [ $txt_buildtime $[$Tcalc / 60] min(s) $[$Tcalc % 60] secs ]";
+			echo -e "\n BUILD OK $bt\n ########" >>$rdir/build.log;
+			fsize=$(ls -lah "$rdir/archiv/$o_name" |awk '{print $5}')
+			echo -e " $rdir/archiv/$o_name found \n" >>$rdir/build.log;
+			$menubox_gui --title "$bt" --msgbox "\n  $o_name $fsize\n  $txt_create ./archiv\n " 8 70;
+			[ "$deldebug" == "1" ] && rm "$rdir/archiv/$o_name.debug";
+			compress_build;
+			[ $pack_set == "YES" ] && pack_cam $o_name;
+		    else
+			$menubox_gui --msgbox "\Zb\Z1 $txt_cmd_build12 $o_name\n $txt_cmd_build13" 6 70;
+		    fi;
+		    patch_off;
+		else
+		    build_line;
+		    clear;
+		    pre_build_menu;
+
+		    [ ! $CUSTOM_SUFFIX == "not_set" ] && o_name $CUSTOM_SUFFIX;
+		    oscam; touch "$rdir/build.log";
+		    make $libusb $pcsc $ssl $libcrypto -j$cpus CC_WARN="$cc" CC_OPTS="-Os -ggdb -pipe -ffunction-sections -fdata-sections" CONF_DIR=$conf_dir OSCAM_BIN=../archiv/$o_name CROSS=$CROSS LIBCRYPTO_LIB="$libcrypto_lib" SSL_LIB="$ssl_lib" LIBUSB_LIB="$libusb_lib" PCSC_LIB="$pcsc_lib" EXTRA_LDFLAGS="$ELDVAR" $verbose $stapi $coolapi $azapi $mcaoption 2>&1 |tee -a "$rdir/build.log";
+
+		    if [ -f "$rdir/archiv/$o_name" ];
+		    then
+			echo -e "\n BUILD OK\n ########" >>$rdir/build.log;
+			echo -e " $rdir/archiv/$o_name $txt_found " >>$rdir/build.log;
+			[ "$deldebug" == "1" ] && rm "$rdir/archiv/$o_name.debug";
+			[ "$pack_set" == "YES" ] && pack_cam $o_name;
+		    else
+			echo -e $r"$txt_cmd_build12 $o_name\n"$n;
+		    fi;
+		    patch_off;
+		fi;
+
+		b_menu;
+		}
+
+check_static()	{
+		ssl_static_set='off';
+		libusb_static_set='off';
+		libcrypto_static_set='off';
+		if [ ! "$no_static_use" == "1" ]; then
+		    [ -f "$cdir/$target.static" ] && source "$cdir/$target.static"
+		fi;
+		}
+
+b_menu()	{
+		SSL_TXT=""
+		[ -f "$cdir/$target.$cn.saved" ] && cp -f "$cdir/$target.$cn.saved" "$svndir/$cn";
+		check_ssl;
+		check_webif;
+		check_extra;
+		IFS=$orgIFS;
+		echo -e "" >>$rdir/build.log;
+		oa="0";
+		[ "$cset" == "YES" ]           && COOL="COOL "           && oa=1 || COOL="";
+		[ "$ssl_set" == "YES" ]        && SSL >/dev/null 2>&1 && SSL_TXT="SSL";
+		[ "$pcsc_set" == "YES" ]       && PCSC="PCSC "           && oa=1 || PCSC="";
+		[ "$pack_set" == "YES" ]       && PACK="PACK "           && oa=1 || PACK="";
+		[ "$stapi_set" == "YES" ]      && STAPI="STAPI "         && oa=1 || STAPI="";
+		[ "$compr_set" == "YES" ]      && COMPRESS="COMPRESS "   && oa=1 || COMPRESS="";
+		[ "$libusb_set" == "YES" ]     && USB="USB "             && usb_on >/dev/null 2>&1 && oa=1;
+		[ "$libcrypto_set" == "YES" ]  && LIBCRYPTO="LIBCRYPTO " && libcrypto_on >/dev/null 2>&1 && oa=1;
+
+		#static_override
+		check_static;
+		if [ "$libusb_static_set" == 'on' ]; then
+		    usb_static > /dev/null 2>&1;
+		    USB="USB_ST ";
+		    oa=1;
+		fi;
+
+		if [ "$ssl_static_set" == 'on' ]; then
+		    libcrypto_static > /dev/null 2>&1;
+		    SSL_static > /dev/null 2>&1;
+		    LIBCRYPTO="LIBCRYPTO_STATIC ";
+		    SSL_TXT="SSL_ST ";
+		    oa=1;
+		fi;
+
+		if [ "$libcrypto_static_set" == 'on' ]; then
+		    LIBCRYPTO="LIBCRYPTO_ST ";
+		    libcrypto_static >/dev/null 2>&1;
+		    oa=1;
+		fi;
+
+		oscam_name;
+
+		if [ "$oa" == "0" ]; then
+		    txt_b_menu_options="$txt_b_menu_options1";
+		else
+		    txt_b_menu_options="$USB$PCSC$STAPI$COOL$PACK$COMPRESS$LIBCRYPTO$SSL_TXT";
+		fi
+		selected=$($gui --backtitle "SIMPLEBUILD" --title "$txt_b_menu_title"\
+		--clear --stdout --no-cancel --menu "\
+___________________________________________________________________\n\
+$txt_bmenu_user   =  `whoami`\n
+Toolchain         =  $target\n\
+$txt_bmenu_comp   =  $compiler\n\
+$txt_bmenu_debu   =  CPU-Threads($cpus) SVN($REVISION) SCRIPT($SIMPLEVERSION)\n\
+$txt_bmenu_acti   =  $txt_b_menu_options\n
+___________________________________________________________________\n\n\
+$txt_build:\n$o_name\n " 23 75 6 \
+		    CONFIGURE		"$txt_b_menu4"	\
+		    BUILD		"$txt_b_menu5"	\
+		    SHOW_OSCAM_CONFIG	"$txt_b_menu7"	\
+		    SHOW_BUILDLOG	"$txt_b_menu6"	\
+		    BACK		"$txt_back"	\
+		    EXIT		"$txt_end");
+
+		[ $? = 255 ] && t_menu;
+		case $selected in
+		    BACK)
+			echo -e "\n #BackMenu $target\n" >>$rdir/build.log;
+			cd $svndir;
+			make distclean >/dev/null 2>&1;
+			t_menu;;
+		    SHOW_BUILDLOG)
+			show_buildlog;;
+		    SHOW_OSCAM_CONFIG)
+			SHOW_OSCAM_CONFIG;;
+		    CONFIGURE)
+			configure_menu;;
+		    BUILD)
+			build_cam;;
+		    EXIT)
+			bye;
+			exit;;
+		esac;
+		}
+
+SHOW_OSCAM_CONFIG(){
+		add=`$svndir/config.sh -s addons`;
+		rdr=`$svndir/config.sh -s readers`;
+		prt=`$svndir/config.sh -s protocols`;
+		readers=`echo $rdr | sed 's/READER_//g'`;
+		protocols=`echo $prt | sed 's/MODULE_//g'`;
+		addons=`echo $add | sed 's/WITH_//g' | sed 's/HAVE_//g' | sed 's/MODULE_//g' | sed 's/CS_//g'| sed 's/SUPPORT//g'`;
+		[ ${#libsearchdir} -lt 1 ] && libsearchdir_txt="default or 'not set'" || libsearchdir_txt=$libsearchdir;
+		$menubox_gui\
+		--title "[ OSCAM CONFIG ]"\
+		--msgbox "\n\
+CONF_DIR  = $conf_dir\n\
+LIB_DIR   = $libsearchdir_txt\n
+_______________________________________________________________________\n\
+Modules:\n\
+$addons\n\
+_______________________________________________________________________\n\
+Protocols:\n\
+$protocols\n\
+_______________________________________________________________________\n\
+Readers:\n\
+$readers\n "\
+		20 75 #windows
+		b_menu;
+		}
+
+upload_cam()	{
+		FILENAME=$1
+		clear;
+		oscam;
+		nli;
+		if [ ! -f "$rdir/$FILENAME" ]; then
+		    clear;
+		    echo -e " $r$txt_error $FILENAME $txt_upload_cam1"$n;
+		    exit;
+		else
+		    echo -e " $g$FILENAME $txt_upload_cam2"$n;
+		fi;
+		port=22
+		source "$rdir/$FILENAME"
+		cd $rdir/archiv
+		CAM=$(ls -N1t | grep $toolchain | grep -v debug | head -1)
+		buildcamname="$CAM";
+		working_set=$(echo $command_set |sed 's/\\//g' |sed s/'$buildcamname'/$buildcamname/g)
+		buildcamname=$CAM;
+
+		if [ ${#CAM} -gt 14 ]; then
+		    echo -e "\n $txt_LOAD $y$buildcamname$n\n $txt_to $b$ip$n port:$b$port$n $txt_wait";
+		    sshpass -p "$password" scp -P $port $buildcamname $loginname@$ip:/tmp;
+		    echo -e " SSH COMMANDS $txt_wait";
+		    sshpass -p "$password" ssh -p $port -o StrictHostKeyChecking=no $loginname@$ip "$working_set";
+		    echo -e " OK...\n ";sleep 1;
+		else
+		    echo -e $p" $txt_wrong1\n"$n;
+		    exit;
+		fi;
+		exit;
+		}
+
+t_menu()	{
+		all_off;
+		getrev;
+		menu_builder;
+		IFS="#";
+		tsel=$($gui --stdout --backtitle "SIMPLEBUILD" --title " Toolchain Menu V$SIMPLEVERSION  " --clear --no-cancel --menu "$txt_t_menu1$REVISION"  $WHSIZE 78 $COUNT ${ARRAY[*]});
+
+		[ $? = 255 ] && bye;
+		case $tsel in
+		    NATIVE)		IFS="$orgIFS";menu "native";;
+		    NATIVE32)		IFS="$orgIFS";menu "native32";;
+		    ARM_V7)		IFS="$orgIFS";menu "arm_v7";;
+		    ARM_Cortex_A9)	IFS="$orgIFS";menu "arm_cortex_a9";;
+		    AZBOX)		IFS="$orgIFS";menu "azbox";;
+		    NSLU2-OPENWRT)	IFS="$orgIFS";menu "nslu2open";;
+		    Brcm63xx)		IFS="$orgIFS";menu "brcm63xx";;
+		    Brcm63xx_Other)	IFS="$orgIFS";menu "brcm63xx_other";;
+		    COOLSTREAM)		IFS="$orgIFS";menu "cool";;
+		    DREAMBOX_FPU)	IFS="$orgIFS";menu "dreambox_fpu";;
+		    MIPSEL)		IFS="$orgIFS";menu "mipsel";;
+		    MIPSOE20)		IFS="$orgIFS";menu "mipsoe20";;
+		    MARV_2618)		IFS="$orgIFS";menu "marv_6281";;
+		    MATRIX)		IFS="$orgIFS";menu "mca";;
+		    POGOPLUG)		IFS="$orgIFS";menu "pogoplug";;
+		    POWERPC)		IFS="$orgIFS";menu "powerpc";;
+		    PPCOLD)		IFS="$orgIFS";menu "ppcold";;
+		    SOLO4K)		IFS="$orgIFS";menu "solo4k";;
+		    FRITZ_33XX)		IFS="$orgIFS";menu "fritz33xx";;
+		    FRITZ_71XX)		IFS="$orgIFS";menu "fritz71xx";;
+		    FRITZ_72XX)		IFS="$orgIFS";menu "fritz72xx";;
+		    FRITZ_73XX)		IFS="$orgIFS";menu "fritz73xx";;
+		    FRITZ_74XX)		IFS="$orgIFS";menu "fritz74xx";;
+		    FRITZ_73xxOS60)	IFS="$orgIFS";menu "fritz73xxOS60";;
+		    FRITZ_74xxOS60)	IFS="$orgIFS";menu "fritz74xxOS60";;
+		    FRITZ_73xxOS62)	IFS="$orgIFS";menu "fritz73xxOS62";;
+		    FRITZ_74xxOS62)	IFS="$orgIFS";menu "fritz74xxOS62";;
+		    FRITZ_74xxOS65)	IFS="$orgIFS";menu "fritz74xxOS65";;
+		    FONERA)		IFS="$orgIFS";menu "fonera";;
+		    TPLINK)		IFS="$orgIFS";menu "tplink";;
+		    TPLINK_Backfire)	IFS="$orgIFS";menu "tplink_backfire";;
+		    DDWRT346)		IFS="$orgIFS";menu "ddwrt346";;
+		    DDWRT410)		IFS="$orgIFS";menu "ddwrt410";;
+		    Openpli_40)		IFS="$orgIFS";menu "openpli40";;
+		    OPENWRT24)		IFS="$orgIFS";menu "openwrt24";;
+		    OPENWRT26)		IFS="$orgIFS";menu "openwrt26";;
+		    Openwrt_1209AA)	IFS="$orgIFS";menu "openwrt1209aa";;
+		    Raspberrypi_H)	IFS="$orgIFS";menu "rasb_hard";;
+		    Raspberrypi_S)	IFS="$orgIFS";menu "rasb_soft";;
+		    SamsungTV)		IFS="$orgIFS";menu "samsungtv";;
+		    Sheevaplug)		IFS="$orgIFS";menu "sheevaplug";;
+		    SH_4)		IFS="$orgIFS";menu "sh_4";;
+		    SH4)		IFS="$orgIFS";menu "sh4";;
+		    Syn_ATOM)		IFS="$orgIFS";menu "syn_atom";;
+		    DOCKSTAR)		IFS="$orgIFS";menu "dockstar";;
+		    PPC_Q_IQ)		IFS="$orgIFS";menu "ppc_eglibc";;
+		    ADD)		IFS="$orgIFS";add_chains;;
+		    REMOVE)		IFS="$orgIFS";rem_chains;;
+		    EXIT)		IFS="$orgIFS";bye; exit;;
+		esac;
+		}
+
+rem_chains()	{
+		all_off;
+		getrev;
+		r_menu_builder;
+		IFS="#";
+		rsel=$($gui --stdout --backtitle "SIMPLEBUILD" --title " Toolchain REMOVE Simplebuild V$SIMPLEVERSION  " --clear --no-cancel --menu " \n $txt_rem_chains1" $WHSIZE 78 $COUNT ${REMMENU[*]});
+		[ $? = 255 ] && t_menu;
+		case $rsel in
+		    PPC_Q_IQ)		IFS="$orgIFS";rm -rf "$tcdir/ppc_eglibc";;
+		    ARM_V7)		IFS="$orgIFS";rm -rf "$tcdir/arm_v7";;
+		    ARM_Cortex_A9)	IFS="$orgIFS";rm -rf "$tcdir/arm_cortex_a9";;
+		    AZBOX)		IFS="$orgIFS";rm -rf "$tcdir/azbox";;
+		    MIPSEL)		IFS="$orgIFS";rm -rf "$tcdir/mipsel";;
+		    MIPSOE20)		IFS="$orgIFS";rm -rf "$tcdir/mipsoe20";;
+		    DREAMBOX_FPU)	IFS="$orgIFS";rm -rf "$tcdir/dreambox_fpu";;
+		    MARV_2618)		IFS="$orgIFS";rm -rf "$tcdir/marv_6281";;
+		    MATRIX)		IFS="$orgIFS";rm -rf "$tcdir/mca";;
+		    POGOPLUG)		IFS="$orgIFS";rm -rf "$tcdir/pogoplug";;
+		    POWERPC)		IFS="$orgIFS";rm -rf "$tcdir/powerpc";;
+		    PPCOLD)		IFS="$orgIFS";rm -rf "$tcdir/ppcold";;
+		    SOLO4K)		IFS="$orgIFS";rm -rf "$tcdir/solo4k";;
+		    FRITZ_33XX)		IFS="$orgIFS";rm -rf "$tcdir/fritz33xx";;
+		    FRITZ_71XX)		IFS="$orgIFS";rm -rf "$tcdir/fritz71xx";;
+		    FRITZ_72XX)		IFS="$orgIFS";rm -rf "$tcdir/fritz72xx";;
+		    FRITZ_73XX)		IFS="$orgIFS";rm -rf "$tcdir/fritz73xx";;
+		    FRITZ_74XX)		IFS="$orgIFS";rm -rf "$tcdir/fritz74xx";;
+		    FRITZ_73xxOS60)	IFS="$orgIFS";rm -rf "$tcdir/fritz73xxOS60";;
+		    FRITZ_74xxOS60)	IFS="$orgIFS";rm -rf "$tcdir/fritz74xxOS60";;
+		    FRITZ_73xxOS62)	IFS="$orgIFS";rm -rf "$tcdir/fritz73xxOS62";;
+		    FRITZ_74xxOS62)	IFS="$orgIFS";rm -rf "$tcdir/fritz74xxOS62";;
+		    FRITZ_74xxOS65)	IFS="$orgIFS";rm -rf "$tcdir/fritz74xxOS65";;
+		    FONERA)		IFS="$orgIFS";rm -rf "$tcdir/fonera";;
+		    NSLU2-OPENWRT)	IFS="$orgIFS";rm -rf "$tcdir/nslu2open";;
+		    COOLSTREAM)		IFS="$orgIFS";rm -rf "$tcdir/cool";;
+		    TPLINK)		IFS="$orgIFS";rm -rf "$tcdir/tplink";;
+		    TPLINK_Backfire)	IFS="$orgIFS";rm -rf "$tcdir/tplink_backfire";;
+		    DDWRT346)		IFS="$orgIFS";rm -rf "$tcdir/ddwrt346";;
+		    DDWRT410)		IFS="$orgIFS";rm -rf "$tcdir/ddwrt410";;
+		    Openpli_40)		IFS="$orgIFS";rm -rf "$tcdir/openpli40";;
+		    OPENWRT24)		IFS="$orgIFS";rm -rf "$tcdir/openwrt24";;
+		    OPENWRT26)		IFS="$orgIFS";rm -rf "$tcdir/openwrt26";;
+		    Openwrt_1209AA)	IFS="$orgIFS";rm -rf "$tcdir/openwrt1209aa";;
+		    Brcm63xx)		IFS="$orgIFS";rm -rf "$tcdir/brcm63xx";;
+		    Brcm63xx_Other)	IFS="$orgIFS";rm -rf "$tcdir/brcm63xx_other";;
+		    Raspberrypi_H)	IFS="$orgIFS";rm -rf "$tcdir/rasb_hard";;
+		    Raspberrypi_S)	IFS="$orgIFS";rm -rf "$tcdir/rasb_soft";;
+		    Sheevaplug)		IFS="$orgIFS";rm -rf "$tcdir/sheevaplug";;
+		    SamsungTV)		IFS="$orgIFS";rm -rf "$tcdir/samsungtv";;
+		    SH_4)		IFS="$orgIFS";rm -rf "$tcdir/sh_4";;
+		    SH4)		IFS="$orgIFS";rm -rf "$tcdir/sh4";;
+		    Syn_ATOM)		IFS="$orgIFS";rm -rf "$tcdir/syn_atom";;
+		    DOCKSTAR)		IFS="$orgIFS";rm -rf "$tcdir/dockstar";;
+		    BACK)		IFS="$orgIFS";t_menu;;
+		esac;
+		t_menu;
+		}
+
+add_chains()	{
+		all_off;
+		getrev;
+		a_menu_builder;
+		IFS="#";
+		asel=$($gui --stdout --backtitle "SIMPLEBUILD" --title " $txt_add_chains1 Simplebuild V$SIMPLEVERSION  " --clear --no-cancel --menu " \n $txt_add_chains2"  $WHSIZE 78 $COUNT ${ADDMENU[*]});
+		[ $? = 255 ] && t_menu;
+		case $asel in
+		    PPC_Q_IQ)		IFS="$orgIFS";menu "ppc_eglibc";;
+		    ARM_V7)		IFS="$orgIFS";menu "arm_v7";;
+		    ARM_Cortex_A9)	IFS="$orgIFS";menu "arm_cortex_a9";;
+		    AZBOX)		IFS="$orgIFS";menu "azbox";;
+		    MIPSEL)		IFS="$orgIFS";menu "mipsel";;
+		    MIPSOE20)		IFS="$orgIFS";menu "mipsoe20";;
+		    DREAMBOX_FPU)	IFS="$orgIFS";menu "dreambox_fpu";;
+		    MARV_2618)		IFS="$orgIFS";menu "marv_6281";;
+		    MATRIX)		IFS="$orgIFS";menu "mca";;
+		    POWERPC)		IFS="$orgIFS";menu "powerpc";;
+		    PPCOLD)		IFS="$orgIFS";menu "ppcold";;
+		    SOLO4K)		IFS="$orgIFS";menu "solo4k";;
+		    POGOPLUG)		IFS="$orgIFS";menu "pogoplug";;
+		    FRITZ_33XX)		IFS="$orgIFS";menu "fritz33xx";;
+		    FRITZ_71XX)		IFS="$orgIFS";menu "fritz71xx";;
+		    FRITZ_72XX)		IFS="$orgIFS";menu "fritz72xx";;
+		    FRITZ_73XX)		IFS="$orgIFS";menu "fritz73xx";;
+		    FRITZ_74XX)		IFS="$orgIFS";menu "fritz74xx";;
+		    FRITZ_73xxOS60)	IFS="$orgIFS";menu "fritz73xxOS60";;
+		    FRITZ_74xxOS60)	IFS="$orgIFS";menu "fritz74xxOS60";;
+		    FRITZ_73xxOS62)	IFS="$orgIFS";menu "fritz73xxOS62";;
+		    FRITZ_74xxOS62)	IFS="$orgIFS";menu "fritz74xxOS62";;
+		    FRITZ_74xxOS65)	IFS="$orgIFS";menu "fritz74xxOS65";;
+		    FONERA)		IFS="$orgIFS";menu "fonera";;
+		    NSLU2-OPENWRT)	IFS="$orgIFS";menu "nslu2open";;
+		    COOLSTREAM)		IFS="$orgIFS";menu "cool";;
+		    TPLINK)		IFS="$orgIFS";menu "tplink";;
+		    TPLINK_Backfire)	IFS="$orgIFS";menu "tplink_backfire";;
+		    DDWRT346)		IFS="$orgIFS";menu "ddwrt346";;
+		    DDWRT410)		IFS="$orgIFS";menu "ddwrt410";;
+		    Openpli_40)		IFS="$orgIFS";menu "openpli40";;
+		    OPENWRT24)		IFS="$orgIFS";menu "openwrt24";;
+		    OPENWRT26)		IFS="$orgIFS";menu "openwrt26";;
+		    Openwrt_1209AA)	IFS="$orgIFS";menu "openwrt1209aa";;
+		    Brcm63xx)		IFS="$orgIFS";menu "brcm63xx";;
+		    Brcm63xx_Other)	IFS="$orgIFS";menu "brcm63xx_other";;
+		    Raspberrypi_H)	IFS="$orgIFS";menu "rasb_hard";;
+		    Raspberrypi_S)	IFS="$orgIFS";menu "rasb_soft";;
+		    Sheevaplug)		IFS="$orgIFS";menu "sheevaplug";;
+		    SamsungTV)		IFS="$orgIFS";menu "samsungtv";;
+		    SH_4)		IFS="$orgIFS";menu "sh_4";;
+		    SH4)		IFS="$orgIFS";menu "sh4";;
+		    Syn_ATOM)		IFS="$orgIFS";menu "syn_atom";;
+		    DOCKSTAR)		IFS="$orgIFS";menu "dockstar";;
+		    BACK)		IFS="$orgIFS";t_menu;
+		esac;
+		}
+
+menu_txt()	{
+		arm_v7_menu="ARM v7 DS114 DS115j DS213j DS214 and many more";
+		arm_cortex_a9_menu="Cortex A9 CPU example: Receiver (SU980)";
+		azbox_menu="Azbox HD Premium/-Plus/Elite";
+		nslu2open_menu="ARM NSLU2 OpenWRT";
+		brcm63xx_menu="Brcm63xx OpenWRT";
+		brcm63xx_other_menu="Brcm63xx OTHER";
+		coolstream_menu="Coolstream Box";
+		pogoplug_menu="PogoPLUG";
+		ppcold_menu="DBox2/DMM 500/56x0";
+		solo4k_menu="VU+ Solo 4K";
+		ddwrt346_menu="DDWRT gcc 3.4.6";
+		ddwrt410_menu="DDWRT gcc 4.1.0 (zb. WNR3500L)";
+		dreambox_fpu_menu="DMM 500HD/800SE/7020HD/8000/VU+ (OE 2.0 FPU)";
+		mipsel_menu="DMM 500HD/800(SE)/7020HD/7025(+)/8000/VU+ (OE 1.6)";
+		mipsoe20_menu="DMM 500HD/800(SE)/7020HD/7025(+)/8000/VU+ (OE 2.0)";
+		powerpc_menu="DMM 600/7000/7020si(PPC Tuxbox)";
+		dockstar_menu="DOCKSTAR (arm)";
+		fonera_menu="Fonera Router";
+		fritz33xx_menu="Fritzbox 33XX";
+		fritz71xx_menu="Fritzbox 71XX";
+		fritz72xx_menu="Fritzbox 72XX";
+		fritz73xx_menu="Fritzbox 73XX";
+		fritz74xx_menu="Fritzbox 74XX";
+		fritz73xxOS60_menu="Fritzbox 73XX OS6.0";
+		fritz74xxOS60_menu="Fritzbox 74XX OS6.0";
+		fritz73xxOS62_menu="Fritzbox 73XX OS6.2";
+		fritz74xxOS62_menu="Fritzbox 74XX OS6.2";
+		fritz74xxOS65_menu="Fritzbox 74XX OS6.5";
+		openpli40_menu="OpenPLI 4.0 (all mipsel, openssl 1.0)";
+		openwrt26_menu="OpenWRT 2.6";
+		openwrt24_menu="OpenWRT 2.4 (Fritz 32XX,71XX,72XX)";
+		openwrt1209aa_menu="OpenWRT 12.09 Attitude Adjustment (ulibc)";
+		ppc_eglibc_menu="PowerPC Q or IQ (Synology NAS DS213+/DS413)";
+		rasb_hard_menu="Raspberrypi HardFPU";
+		rasb_soft_menu="Raspberrypi SoftFPU";
+		sheevaplug_menu="Sheevaplug";
+		samsungtv_menu="SamsungTV Serie E/F (ES7xxx/8xxx)";
+		marv_6281_menu="Synology Marvell 88F628x";
+		mca_menu="Matrix Cam Air";
+		tplink_menu="TP-Link 1043ND";
+		tplink_backfire_menu="TP-Link Backfire (openwrt/ar71xx)";
+		sh_4_menu="Octagon, Ipbox, Kathrein, Fortis, Spark-Box";
+		sh4_menu="UFS-9XX & Octagon (segfaults on some systems)";
+		syn_atom_menu="Synology with Atom CPU";
+		}
+
+menu_builder()	{
+		ARRAY=();
+		COUNT=1;
+		counter=0;
+		createmenu="";
+		
+		menu_txt;
+		cd $rdir;
+		createmenu=`ls toolchains --format=single-column -p |sed 's/\///g' |tr "\n" " "`;
+		ARRAY+=("EXIT#$txt_menu_builder1"); counter_;
+		ARRAY+=("ADD#$txt_menu_builder2"); counter_;
+		[ $(ls -1 $rdir/toolchains | wc -l) -gt 3 ] && ARRAY+=("REMOVE#$txt_menu_builder3") && counter_;
+		ARRAY+=("NATIVE#$txt_menu_builder4 $native"); counter_;
+		# disabled not working [ $(uname -m) == "x86_64" ] && ARRAY+=("NATIVE32#$txt_menu_builder4 $native32"); counter_;
+		for c_list_element in $allchains_list
+		do
+		    for ls_element in $createmenu
+		    do
+			if [ "$c_list_element" == "$ls_element" ]; then
+			    case $ls_element in
+			    arm_v7)		ARRAY+=("ARM_V7#$arm_v7_menu");				counter_;;
+			    arm_cortex_a9)	ARRAY+=("ARM_Cortex_A9#$arm_cortex_a9_menu");		counter_;;
+			    azbox)		ARRAY+=("AZBOX#$azbox_menu");				counter_;;
+			    nslu2open)		ARRAY+=("NSLU2-OPENWRT#$nslu2open_menu");		counter_;;
+			    brcm63xx)		ARRAY+=("Brcm63xx#$brcm63xx_menu");			counter_;;
+			    brcm63xx_other)	ARRAY+=("Brcm63xx_Other#$brcm63xx_other_menu");		counter_;;
+			    cool)		ARRAY+=("COOLSTREAM#$coolstream_menu");			counter_;;
+			    ppcold)		ARRAY+=("PPCOLD#$ppcold_menu");				counter_;;
+			    solo4k)		ARRAY+=("SOLO4K#$solo4k_menu");				counter_;;
+			    pogoplug)		ARRAY+=("POGOPLUG#$pogoplug_menu");			counter_;;
+			    ddwrt346)		ARRAY+=("DDWRT346#$ddwrt346_menu");			counter_;;
+			    ddwrt410)		ARRAY+=("DDWRT410#$ddwrt410_menu");			counter_;;
+			    dreambox_fpu)	ARRAY+=("DREAMBOX_FPU#$dreambox_fpu_menu");		counter_;;
+			    mipsel)		ARRAY+=("MIPSEL#$mipsel_menu");				counter_;;
+			    mipsoe20)		ARRAY+=("MIPSOE20#$mipsoe20_menu");			counter_;;
+			    powerpc)		ARRAY+=("POWERPC#$powerpc_menu");			counter_;;
+			    dockstar)		ARRAY+=("DOCKSTAR#$dockstar_menu");			counter_;;
+			    fonera)		ARRAY+=("FONERA#$fonera_menu");				counter_;;
+			    fritz33xx)		ARRAY+=("FRITZ_33XX#$fritz33xx_menu");			counter_;;
+			    fritz71xx)		ARRAY+=("FRITZ_71XX#$fritz71xx_menu");			counter_;;
+			    fritz72xx)		ARRAY+=("FRITZ_72XX#$fritz72xx_menu");			counter_;;
+			    fritz73xx)		ARRAY+=("FRITZ_73XX#$fritz73xx_menu");			counter_;;
+			    fritz74xx)		ARRAY+=("FRITZ_74XX#$fritz74xx_menu");			counter_;;
+			    fritz73xxOS60)	ARRAY+=("FRITZ_73xxOS60#$fritz73xxOS60_menu");		counter_;;
+			    fritz74xxOS60)	ARRAY+=("FRITZ_74xxOS60#$fritz74xxOS60_menu");		counter_;;
+			    fritz73xxOS62)	ARRAY+=("FRITZ_73xxOS62#$fritz73xxOS62_menu");		counter_;;
+			    fritz74xxOS62)	ARRAY+=("FRITZ_74xxOS62#$fritz74xxOS62_menu");		counter_;;
+			    fritz74xxOS65)	ARRAY+=("FRITZ_74xxOS65#$fritz74xxOS65_menu");		counter_;;
+			    mca)		ARRAY+=("MATRIX#$mca_menu");				counter_;;
+			    openpli40)		ARRAY+=("Openpli_40#$openpli40_menu");			counter_;;
+			    openwrt24)		ARRAY+=("OPENWRT24#$openwrt24_menu");			counter_;;
+			    openwrt26)		ARRAY+=("OPENWRT26#$openwrt26_menu");			counter_;;
+			    openwrt1209aa)	ARRAY+=("Openwrt_1209AA#$openwrt1209aa_menu");		counter_;;
+			    ppc_eglibc)		ARRAY+=("PPC_Q_IQ#$ppc_eglibc_menu");			counter_;;
+			    rasb_hard)		ARRAY+=("Raspberrypi_H#$rasb_hard_menu");		counter_;;
+			    rasb_soft)		ARRAY+=("Raspberrypi_S#$rasb_soft_menu");		counter_;;
+			    sheevaplug)		ARRAY+=("Sheevaplug#$sheevaplug_menu");			counter_;;
+			    samsungtv)		ARRAY+=("SamsungTV#$samsungtv_menu");			counter_;;
+			    marv_6281)		ARRAY+=("MARV_2618#$marv_6281_menu");			counter_;;
+			    sh_4)		ARRAY+=("SH_4#$sh_4_menu");				counter_;;
+			    sh4)		ARRAY+=("SH4#$sh4_menu");				counter_;;
+			    syn_atom)		ARRAY+=("Syn_ATOM#$syn_atom_menu");			counter_;;
+			    tplink_backfire)	ARRAY+=("TPLINK_Backfire#$tplink_backfire_menu");	counter_;;
+			    tplink)		ARRAY+=("TPLINK#$tplink_menu");				counter_;;
+			    esac;
+			fi
+		    done
+		done;
+		}
+
+a_menu_builder(){
+		all_off;
+		getrev;
+		COUNT=1;
+		counter=0;
+		createmenu="";
+		cd $rdir;
+		use_list="";
+		templist="";
+		ADDMENU=();
+		ADDMENU+=("BACK#$txt_menu_back"); counter_;
+		createmenu=`ls toolchains --format=single-column -p |sed 's/\///g' |tr "\n" " "`;
+		for createmenu_element in $createmenu
+		do
+		    for c_list_element in $allchains_list
+		    do
+			[ $c_list_element == $createmenu_element ] && templist="$templist $c_list_element";
+		    done
+		done
+		use_list=$allchains_list;
+		for templist_element in $templist
+		do
+		    use_list=`echo $use_list |sed s/$templist_element//`;
+		done
+		for use_list_element in $use_list
+		do
+		    case $use_list_element in
+			ppc_eglibc)		ADDMENU+=("PPC_Q_IQ#$ppc_eglibc_menu");			counter_;;
+			syn_atom)		ADDMENU+=("Syn_ATOM#$syn_atom_menu");			counter_;;
+			sh_4)			ADDMENU+=("SH_4#$sh_4_menu");				counter_;;
+			sh4)			ADDMENU+=("SH4#$sh4_menu");				counter_;;
+			solo4k)			ADDMENU+=("SOLO4K#$solo4k_menu");			counter_;;
+			ppcold)			ADDMENU+=("PPCOLD#$ppcold_menu");			counter_;;
+			tplink)			ADDMENU+=("TPLINK#$tplink_menu");			counter_;;
+			tplink_backfire)	ADDMENU+=("TPLINK_Backfire#$tplink_backfire_menu");	counter_;;
+			fonera)			ADDMENU+=("FONERA#$fonera_menu");			counter_;;
+			mipsel)			ADDMENU+=("MIPSEL#$mipsel_menu");			counter_;;
+			poogoplug)		ADDMENU+=("POGOPLUG#$pogoplug_menu");			counter_;;
+			powerpc)		ADDMENU+=("POWERPC#$powerpc_menu");			counter_;;
+			ddwrt346)		ADDMENU+=("DDWRT346#$ddwrt346_menu");			counter_;;
+			ddwrt410)		ADDMENU+=("DDWRT410#$ddwrt410_menu");			counter_;;
+			brcm63xx)		ADDMENU+=("Brcm63xx#$brcm63xx_menu");			counter_;;
+			brcm63xx_other)		ADDMENU+=("Brcm63xx_Other#$brcm63xx_other_menu");	counter_;;
+			mipsoe20)		ADDMENU+=("MIPSOE20#$mipsoe20_menu");			counter_;;
+			dockstar)		ADDMENU+=("DOCKSTAR#$dockstar_menu");			counter_;;
+			marv_6281)		ADDMENU+=("MARV_2618#$marv_6281_menu");			counter_;;
+			mca)			ADDMENU+=("MATRIX#$mca_menu");				counter_;;
+			openpli40)		ADDMENU+=("Openpli_40#$openpli40_menu");		counter_;;
+			openwrt24)		ADDMENU+=("OPENWRT24#$openwrt24_menu");			counter_;;
+			openwrt26)		ADDMENU+=("OPENWRT26#$openwrt26_menu");			counter_;;
+			openwrt1209aa)		ADDMENU+=("Openwrt_1209AA#$openwrt1209aa_menu");	counter_;;
+			fritz33xx)		ADDMENU+=("FRITZ_33XX#$fritz33xx_menu");		counter_;;
+			fritz71xx)		ADDMENU+=("FRITZ_71XX#$fritz71xx_menu");		counter_;;
+			fritz72xx)		ADDMENU+=("FRITZ_72XX#$fritz72xx_menu");		counter_;;
+			fritz73xx)		ADDMENU+=("FRITZ_73XX#$fritz73xx_menu");		counter_;;
+			fritz74xx)		ADDMENU+=("FRITZ_74XX#$fritz74xx_menu");		counter_;;
+			fritz73xxOS60)		ADDMENU+=("FRITZ_73xxOS60#$fritz73xxOS60_menu");	counter_;;
+			fritz74xxOS60)		ADDMENU+=("FRITZ_74xxOS60#$fritz74xxOS60_menu");	counter_;;
+			fritz73xxOS62)		ADDMENU+=("FRITZ_73xxOS62#$fritz73xxOS62_menu");	counter_;;
+			fritz74xxOS62)		ADDMENU+=("FRITZ_74xxOS62#$fritz74xxOS62_menu");	counter_;;
+			fritz74xxOS65)		ADDMENU+=("FRITZ_74xxOS65#$fritz74xxOS65_menu");	counter_;;
+			cool)			ADDMENU+=("COOLSTREAM#$coolstream_menu");		counter_;;
+			nslu2open)		ADDMENU+=("NSLU2-OPENWRT#$nslu2open_menu");		counter_;;
+			rasb_hard)		ADDMENU+=("Raspberrypi_H#$rasb_hard_menu");		counter_;;
+			rasb_soft)		ADDMENU+=("Raspberrypi_S#$rasb_soft_menu");		counter_;;
+			sheevaplug)		ADDMENU+=("Sheevaplug#$sheevaplug_menu");		counter_;;
+			samsungtv)		ADDMENU+=("SamsungTV#$samsungtv_menu");			counter_;;
+			dreambox_fpu)		ADDMENU+=("DREAMBOX_FPU#$dreambox_fpu_menu");		counter_;;
+			azbox)			ADDMENU+=("AZBOX#$azbox_menu");				counter_;;
+			arm_cortex_a9)		ADDMENU+=("ARM_Cortex_A9#$arm_cortex_a9_menu");		counter_;;
+			arm_v7)			ADDMENU+=("ARM_V7#$arm_v7_menu");			counter_;;
+			esac;
+		done;
+		}
+
+r_menu_builder(){
+		all_off;
+		getrev;
+		COUNT=1;
+		counter=0;
+		cd $rdir;
+		REMMENU=();
+		REMMENU+=("BACK#$txt_menu_back"); counter_;
+		createmenu=`ls toolchains --format=single-column -p |sed 's/\///g' |tr "\n" " "`;
+		for createmenu_element in $createmenu
+		do
+		    for allchains_element in $allchains_list
+		    do
+			if [ $allchains_element == $createmenu_element ]; then
+			    case $allchains_element in
+			    ppc_eglibc)		REMMENU+=("PPC_Q_IQ#$ppc_eglibc_menu");			counter_;;
+			    syn_atom)		REMMENU+=("Syn_ATOM#$syn_atom_menu");			counter_;;
+			    sh_4)		REMMENU+=("SH_4#$sh_4_menu");				counter_;;
+			    sh4)		REMMENU+=("SH4#$sh4_menu");				counter_;;
+			    azbox)		REMMENU+=("AZBOX#$azbox_menu");				counter_;;
+			    solo4k)		REMMENU+=("SOLO4K#$solo4k_menu");			counter_;;
+			    ppcold)		REMMENU+=("PPCOLD#$ppcold_menu");			counter_;;
+			    tplink)		REMMENU+=("TPLINK#$tplink_menu");			counter_;;
+			    fonera)		REMMENU+=("FONERA#$fonera_menu");			counter_;;
+			    mipsel)		REMMENU+=("MIPSEL#$mipsel_menu");			counter_;;
+			    pogoplug)		REMMENU+=("POGOPLUG#$pogoplug_menu");			counter_;;
+			    powerpc)		REMMENU+=("POWERPC#$powerpc_menu");			counter_;;
+			    ddwrt346)		REMMENU+=("DDWRT346#$ddwrt346_menu");			counter_;;
+			    ddwrt410)		REMMENU+=("DDWRT410#$ddwrt410_menu");			counter_;;
+			    brcm63xx)		REMMENU+=("Brcm63xx#$brcm63xx_menu");			counter_;;
+			    brcm63xx_other)	REMMENU+=("Brcm63xx_Other#$brcm63xx_other_menu");	counter_;;
+			    mipsoe20)		REMMENU+=("MIPSOE20#$mipsoe20_menu");			counter_;;
+			    dockstar)		REMMENU+=("DOCKSTAR#$dockstar_menu");			counter_;;
+			    marv_6281)		REMMENU+=("MARV_2618#$marv_6281_menu");			counter_;;
+			    mca)		REMMENU+=("MATRIX#mca_menu");				counter_;;
+			    openpli40)		REMMENU+=("Openpli_40#$openpli40_menu");		counter_;;
+			    openwrt24)		REMMENU+=("OPENWRT24#$openwrt24_menu");			counter_;;
+			    openwrt26)		REMMENU+=("OPENWRT26#$openwrt26_menu");			counter_;;
+			    openwrt1209aa)	REMMENU+=("Openwrt_1209AA#$openwrt1209aa_menu");	counter_;;
+			    fritz33xx)		REMMENU+=("FRITZ_33XX#$fritz33xx_menu");		counter_;;
+			    fritz71xx)		REMMENU+=("FRITZ_71XX#$fritz71xx_menu");		counter_;;
+			    fritz72xx)		REMMENU+=("FRITZ_72XX#$fritz72xx_menu");		counter_;;
+			    fritz73xx)		REMMENU+=("FRITZ_73XX#$fritz73xx_menu");		counter_;;
+			    fritz74xx)		REMMENU+=("FRITZ_74XX#$fritz74xx_menu");		counter_;;
+			    fritz73xxOS60)	REMMENU+=("FRITZ_73xxOS60#$fritz73xxOS60_menu");	counter_;;
+			    fritz74xxOS60)	REMMENU+=("FRITZ_74xxOS60#$fritz74xxOS60_menu");	counter_;;
+			    fritz73xxOS62)	REMMENU+=("FRITZ_73xxOS62#$fritz73xxOS62_menu");	counter_;;
+			    fritz74xxOS62)	REMMENU+=("FRITZ_74xxOS62#$fritz74xxOS62_menu");	counter_;;
+			    fritz74xxOS65)	REMMENU+=("FRITZ_74xxOS65#$fritz74xxOS65_menu");	counter_;;
+			    cool)		REMMENU+=("COOLSTREAM#$coolstream_menu");		counter_;;
+			    nslu2open)		REMMENU+=("NSLU2-OPENWRT#$nslu2open_menu");		counter_;;
+			    rasb_hard)		REMMENU+=("Raspberrypi_H#$rasb_hard_menu");		counter_;;
+			    rasb_soft)		REMMENU+=("Raspberrypi_S#$rasb_soft_menu");		counter_;;
+			    sheevaplug)		REMMENU+=("Sheevaplug#$sheevaplug_menu");		counter_;;
+			    samsungtv)		REMMENU+=("SamsungTV#$samsungtv_menu");			counter_;;
+			    dreambox_fpu)	REMMENU+=("DREAMBOX_FPU#$dreambox_fpu_menu");		counter_;;
+			    arm_cortex_a9)	REMMENU+=("ARM_Cortex_A9#$arm_cortex_a9_menu");		counter_;;
+			    arm_v7)		REMMENU+=("ARM_V7#$arm_v7_menu");			counter_;;
+			    esac;
+			fi
+		    done
+		done; }
+
+add_chains()	{
+		all_off;
+		getrev;
+		a_menu_builder;
+		IFS="#";
+		asel=$($gui --stdout --backtitle "SIMPLEBUILD" --title " $txt_add_chains1 Simplebuild V$SIMPLEVERSION  " --clear --no-cancel --menu " \n  $txt_add_chains1"  $WHSIZE 78 $COUNT ${ADDMENU[*]});
+		case $asel in
+		    PPC_Q_IQ)		IFS="$orgIFS";menu "ppc_eglibc";;
+		    ARM_V7)		IFS="$orgIFS";menu "arm_v7";;
+		    ARM_Cortex_A9)	IFS="$orgIFS";menu "arm_cortex_a9";;
+		    AZBOX)		IFS="$orgIFS";menu "azbox";;
+		    MIPSEL)		IFS="$orgIFS";menu "mipsel";;
+		    MIPSOE20)		IFS="$orgIFS";menu "mipsoe20";;
+		    DREAMBOX_FPU)	IFS="$orgIFS";menu "dreambox_fpu";;
+		    MARV_2618)		IFS="$orgIFS";menu "marv_6281";;
+		    MATRIX)		IFS="$orgIFS";menu "mca";;
+		    POGOPLUG)		IFS="$orgIFS";menu "pogoplug";;
+		    POWERPC)		IFS="$orgIFS";menu "powerpc";;
+		    SOLO4K)		IFS="$orgIFS";menu "solo4k";;
+		    PPCOLD)		IFS="$orgIFS";menu "ppcold";;
+		    FRITZ_33XX)		IFS="$orgIFS";menu "fritz33xx";;
+		    FRITZ_71XX)		IFS="$orgIFS";menu "fritz71xx";;
+		    FRITZ_72XX)		IFS="$orgIFS";menu "fritz72xx";;
+		    FRITZ_73XX)		IFS="$orgIFS";menu "fritz73xx";;
+		    FRITZ_74XX)		IFS="$orgIFS";menu "fritz74xx";;
+		    FRITZ_73xxOS60)	IFS="$orgIFS";menu "fritz73xxOS60";;
+		    FRITZ_74xxOS60)	IFS="$orgIFS";menu "fritz74xxOS60";;
+		    FRITZ_73xxOS62)	IFS="$orgIFS";menu "fritz73xxOS62";;
+		    FRITZ_74xxOS62)	IFS="$orgIFS";menu "fritz74xxOS62";;
+		    FRITZ_74xxOS65)	IFS="$orgIFS";menu "fritz74xxOS65";;
+		    FONERA)		IFS="$orgIFS";menu "fonera";;
+		    NSLU2-OPENWRT)	IFS="$orgIFS";menu "nslu2open";;
+		    COOLSTREAM)		IFS="$orgIFS";menu "cool";;
+		    TPLINK)		IFS="$orgIFS";menu "tplink";;
+		    TPLINK_Backfire)	IFS="$orgIFS";menu "tplink_backfire";;
+		    DDWRT346)		IFS="$orgIFS";menu "ddwrt346";;
+		    DDWRT410)		IFS="$orgIFS";menu "ddwrt410";;
+		    Openpli_40)		IFS="$orgIFS";menu "openpli40";;
+		    OPENWRT24)		IFS="$orgIFS";menu "openwrt24";;
+		    OPENWRT26)		IFS="$orgIFS";menu "openwrt26";;
+		    Openwrt_1209AA)	IFS="$orgIFS";menu "openwrt1209aa";;
+		    Brcm63xx)		IFS="$orgIFS";menu "brcm63xx";;
+		    Brcm63xx_Other)	IFS="$orgIFS";menu "brcm63xx_other";;
+		    Raspberrypi_H)	IFS="$orgIFS";menu "rasb_hard";;
+		    Raspberrypi_S)	IFS="$orgIFS";menu "rasb_soft";;
+		    Sheevaplug)		IFS="$orgIFS";menu "sheevaplug";;
+		    SamsungTV)		IFS="$orgIFS";menu "samsungtv";;
+		    SH_4)		IFS="$orgIFS";menu "sh_4";;
+		    SH4)		IFS="$orgIFS";menu "sh4";;
+		    Syn_ATOM)		IFS="$orgIFS";menu "syn_atom";;
+		    DOCKSTAR)		IFS="$orgIFS";menu "dockstar";;
+		    BACK)		IFS="$orgIFS";t_menu;
+		esac;
+		}
+
+cedit()		{
+		sc="$rdir/simplebuild.config";
+		ol="deldebug intcheck nosvncheck debug ucheck";
+		for ole in $ol
+		do
+		    val=$(cat $sc |grep ^$ole |awk '{print $2}' |sed s/\"//g);
+		    case $ole in
+			deldebug) [ "$val" == "0" ] && del_stat="off" || del_stat="on";;
+			intcheck) [ "$val" == "0" ] && int_stat="off" || int_stat="on";;
+			nosvncheck)  [ "$val" == "0" ] && nosvn_stat="off" || nosvn_stat="on";;
+			ucheck)   [ "$val" == "0" ] && uck_stat="off" || uck_stat="on";;
+			debug)    [ "$val" == "0" ] && deb_stat="off" || deb_stat="on";;
+		    esac;
+		done
+
+		oo=$($gui $checklistparam "$txt_options_title"\
+		--checklist " $txt_options1\n\n [*] = $txt_options2; [ ] = $txt_options3\n\n" 15 55 5\
+		deldebug	"$txt_cedit1"	$del_stat\
+		intcheck	"$txt_cedit2"	$int_stat\
+		nosvncheck	"$txt_offline MODE"	$nosvn_stat\
+		ucheck		"$txt_cedit4"	$uck_stat\
+		debug		"$txt_cedit5"	$deb_stat);
+
+		[ $? = 255 ] && bye;
+		oo=`echo $oo |sed s/\"//g`;
+		for ooe in $oo
+		    do
+		    for ole in $ol
+			do
+			if [ $ooe == $ole ]; then
+			    tl="$tl $ooe";
+			    cat $sc | sed "s/^$ooe*.*/$ooe \"1\"/" >$sc.new; rm $sc; mv $sc.new $sc;
+			fi;
+		    done;
+		done;
+		u_l=$ol;
+		for tle in $tl
+		    do
+		    u_l=`echo $u_l |sed s/$tle//`;
+		done
+		for ule in $u_l
+		    do
+		    cat $sc | sed "s/^$ule*.*/$ule \"0\"/" >$sc.new;
+		    rm $sc;
+		    mv $sc.new $sc;
+		done;
+		}
+
+lang_select()	{
+		de_stat="off";
+		fr_stat="off";
+		it_stat="off";
+		en_stat="off";
+
+		if [ -f "$rdir/toolchains/configs/lang" ]; then
+		    lang=$(cat $rdir/toolchains/configs/lang);
+		else
+		    lang=${LANG:0:2};
+		fi
+
+		case $lang in
+		    de) [ "$val" == "0" ] && de_stat="off" || de_stat="on";;
+		    fr) [ "$val" == "0" ] && fr_stat="off" || fr_stat="on";;
+		    it) [ "$val" == "0" ] && it_stat="off" || it_stat="on";;
+		    en) [ "$val" == "0" ] && en_stat="off" || en_stat="on";;
+		esac;
+		
+		oo=$($gui $checklistparam "$txt_options_title"\
+		--radiolist " $txt_options1\n" 11 50 4\
+		de	"deutsch"		$de_stat\
+		fr	"francais"		$fr_stat\
+		it	"italiano"		$it_stat\
+		en	"english (default)"	$en_stat);
+		[ $? = 255 ] && bye;
+		case $oo in
+			de) echo de >$rdir/toolchains/configs/lang;;
+			fr) echo fr >$rdir/toolchains/configs/lang;;
+			it) echo it >$rdir/toolchains/configs/lang;;
+			en) echo en >$rdir/toolchains/configs/lang;;
+		esac;
+		}
+
+tcf_check()	{
+		s_path;
+		
+		if [ ! -f "$bdir/$tcname" ]; then
+		    ofz=`wget "$fpath/$tcname" --spider --server-response -O- 2>&1 | sed -ne '/Content-Length/{s/.*: //;p}'`;
+		    calc $ofz;
+		    get_tc "$fpath" "$tcname";
+		    if [ -f "$bdir/$tcname" ]; then
+			mkdir "$tcdir/$1";
+			cd "$tcdir/$1";
+			xz -d "$bdir/$tcname" -c | tar -xv | $messagebox;
+		    fi;
+		else
+		    if [ "$intcheck" == "1" ]; then
+			ofz=`wget "$fpath/$tcname" --spider --server-response -O- 2>&1 | sed -ne '/Content-Length/{s/.*: //;p}'`;
+			calc $ofz;
+			lfz=`ls -la "$bdir/$tcname" |awk '{print $5}'`
+			if [ ! "$ofz" == "$lfz" ]; then
+			    rm "$fpath/$tcname";
+			    get_tc "$fpath" "$tcname";
+			    if [ -f "$bdir/$tcname" ]; then
+				mkdir "$tcdir/$1";
+				cd "$tcdir/$1";
+				xz -d "$bdir/$tcname" -c | tar -xv | $messagebox;
+			    fi;
+			fi;
+		    else
+			if [ -f "$bdir/$tcname" ]; then
+			    mkdir "$tcdir/$1";
+			    cd "$tcdir/$1";
+			    xz -d "$bdir/$tcname" -c | tar -xv | $messagebox;
+			fi;
+		    fi;
+		fi;
+
+		if [ ! -f "$bdir/$tcname" ]; then
+		    bye;
+		    nli;
+		    echo -e $r " $txt_con_check3 $tcname\n" $n;
+		    exit;
+		fi
+
+		target="$1";
+		}
+
+rev_check()	{
+		getrev;
+		[ "$ucheck" == "1" ] && online_update && conf_update;
+		wsize_check;
+		if [ "$nosvncheck" == "0" ]; then
+		mbox $txt_revcheck1
+		(logo;
+		[ -f $rdir/simplebuild.lang ] && source $rdir/simplebuild.lang;
+		echo -e "\n\t$txt_revcheck2 $txt_wait";
+		if [ "`wget -O- -t 1 --timeout=10 $trunkurl/.gitignore --spider --server-response 2>&1 |grep 'HTTP/' |awk '{print $3}'`" == "OK" ]; then
+		    osvn=`svn info $trunkurl | grep -m 1 'vision' | awk '{print $2}'`;
+		    status="online";
+		    [ -f "$rdir/simplebuild.config" ] && get_options;
+		    echo -e "\t$txt_revcheck3 $osvn";
+		    impossible="";
+		    chosetext="$txt_revcheck4";
+		else
+		    osvn="$txt_revcheck5";
+		    status="$txt_offline";
+		    echo -e "\t$osvn";
+		    chosetext=$osvn;
+		fi;
+
+		if [ "$uckeck" == "1" ]; then
+		    if [ ! -f "$rdir/simplebuild.config" ]; then
+			wget "Osimplebuild.config" "$u/simplebuild.config" -q;
+		    else
+			conf_update;
+		    fi;
+		fi
+
+		echo -e "\t$txt_revcheck6 $txt_wait";
+		echo -e "\t$txt_revcheck3 $REVISION ";
+
+		if [ $status == "online" ]; then
+		    if [ "$REVISION" == "not found" ]; then
+			echo -e "\t$txt_force";
+			sleep 2;
+			checkout oscam-svn;
+			if [ -d $svndir ]; then
+			    cd $svndir;
+			    REVISION=`./config.sh -r`
+			fi;
+		    fi;
+		fi;
+		USER_HOME=$(eval echo ~${SUDO_USER})
+		if [ -w $USER_HOME ]; then
+		[ -d $USER_HOME/.simplebuild ] || mkdir $USER_HOME/.simplebuild
+		    echo $osvn>$USER_HOME/.simplebuild/osvn;
+		    echo $status>$USER_HOME/.simplebuild/status;
+		    echo $chosetext>$USER_HOME/.simplebuild/chosetext;
+		    echo $REVISION>$USER_HOME/.simplebuild/REVISION;
+		else
+		    logo;
+		    nli;
+		    echo -e "\t $USER_HOME is not writeable\n";
+		fi;
+		sleep 2; 2>&1) | $messagebox;
+
+		USER_HOME=$(eval echo ~${SUDO_USER})
+		if [ -w $USER_HOME ]; then
+		    osvn=`cat $USER_HOME/.simplebuild/osvn`
+		    status=`cat $USER_HOME/.simplebuild/status`
+		    chosetext=`cat $USER_HOME/.simplebuild/chosetext`
+		    REVISION=`cat $USER_HOME/.simplebuild/REVISION`
+		else
+		    logo;
+		    nli;
+		    echo -e "\t $USER_HOME cant find vars\n";
+		fi;
+		rm -rf /tmp/osvn /tmp/REVISION /tmp/chosetext /tmp/status;
+		fi;
+
+		#for testings
+		#SIMPLEVERSION='2.XX[TEST]';
+
+		if [ "$nosvncheck" == "0" ]; then
+		    if [ $osvn == $REVISION ]; then
+			revsel=$($menubox_gui \
+			--title '[ simplebuild V'$SIMPLEVERSION' by Gorgone ]'	\
+			--menu '\n Online SVN ('$osvn') = Local SVN ('$REVISION')\n'\
+			14 70 9 \
+			Continue		"$txt_revsel1 r$REVISION"\
+			CHOOSE		"$chosetext"\
+			CLEAN		"$txt_revsel2 r$REVISION $txt_revsel3"\
+			CEDIT		"$txt_revsel4"\
+			LANG		"$txt_lang_select"\
+			EXIT		"$txt_revsel5");
+		    else
+			revsel=$($menubox_gui \
+			--title '[ simplebuild V'$SIMPLEVERSION' by Gorgone ]'	\
+			--menu '\n Online SVN ('$osvn') = Local SVN ('$REVISION')\n'\
+			15 70 10 \
+			Checkout	"$txt_revsel6 r$osvn"\
+			Continue	"$txt_revsel1 r$REVISION"\
+			CHOOSE		"$chosetext"\
+			CLEAN		"$txt_revsel2 r$REVISION $txt_revsel3"\
+			CEDIT		"$txt_revsel4"\
+			LANG		"$txt_lang_select"\
+			EXIT		"$txt_revsel5");
+		    fi;
+		else
+		    revsel=$($menubox_gui \
+		    --title '[ simplebuild V'$SIMPLEVERSION' by Gorgone ]'	\
+		    --menu '\n Local SVN ('$REVISION')\n'\
+		    12 70 7 \
+		    Continue		"$txt_revsel1 r$REVISION"\
+		    CEDIT		"$txt_revsel4"\
+		    LANG		"$txt_lang_select"\
+		    EXIT		"$txt_revsel5");
+		fi;
+
+		[ $? = 255 ] && bye;
+		case $revsel in
+		    Checkout)
+			[ -d $svndir ] && cd $svndir;
+			mbox "r$osvn";
+			svn update --force | $messagebox;
+			stapicheck;
+			con_toolcheck;
+			copy_config;
+			t_menu;;
+		    Continue)
+			stapicheck;
+			con_toolcheck;
+			copy_config;
+			t_menu;;
+		    CLEAN)
+			[ -d $svndir ] && rm -rf $svndir;
+			checkout oscam-svn;
+			[ -d $cdir ] && rm -rf $cdir && mkdir $cdir;
+			stapicheck;
+			con_toolcheck;
+			copy_config;
+			t_menu;;
+		    CHOOSE)
+
+			if [ $status == "online" ]; then
+			    [ -d oscam-svn ] && rm -rf oscam-svn;
+			    manual=$( $gui --no-cancel --stdout --inputbox "Enter a REVISION NR > 7000 <= $osvn" 8 52 )
+			    checkout "oscam-svn -r $manual";
+			    getrev;
+			fi;
+
+			[ ! -f "$svndir/config.sh" ] && bye && echo -e "\n\t $r $txt_nosvn $n" && sleep 2 && bye || stapicheck && con_toolcheck && copy_config && t_menu;;
+		    CEDIT)
+			cedit;
+			./simplebuild menu;
+			exit;;
+		    LANG)
+			lang_select;
+			./simplebuild menu;
+			exit;;
+		    EXIT)
+			bye;
+			exit;;
+		    *)
+			exit;;
+		esac;
+		}
+
+main_prog()	{
+		clear;
+		gui=`which dialog`;
+		s_path;
+		[ ! -d "$rdir/archiv" ] && mkdir "$rdir/archiv";
+		[ ! -d "$rdir/patches" ] && mkdir "$rdir/patches";
+		[ ! -d $tcdir ] && mkdir $tcdir;
+		[ ! -d $upxdir ] && mkdir $upxdir;
+		[ ! -d $bdir ] && mkdir $bdir;
+		[ ! -d $cdir ] && mkdir $cdir;
+		rev_check;
+		bye;
+		exit;
+		}
+
+lang_en()	{
+txt_ENGLISH_BEGIN="###############################";
+txt_bmenu_user="Build User     ";
+txt_bmenu_comp="Compiler       ";
+txt_bmenu_debu="Debug Info     ";
+txt_bmenu_acti="Active Features";
+txt_wait='please wait...';
+txt_build="build";
+txt_to="to";
+txt_lc="use";
+txt_lang_select="change language";
+txt_force="Forcing Quick-Checkout";
+txt_back="Back to toolchain menu";
+txt_end="Exit simplebuild";
+txt_offline="offline";
+txt_error="error";
+txt_LOAD="UPLOAD";
+txt_DOWNLOAD="Downloading";
+txt_REMOVE="REMOVE";
+txt_found_in="found in";
+txt_found_in_archiv="found in archive";
+txt_buildtime="buildtime";
+txt_nosvn="no svn found";
+txt_with="with";
+txt_old='old';
+txt_no_stapi="no sh4 STAPI available!";
+txt_rm='deleted';
+txt_help1='start with';
+txt_help2='the commandline parameters are';
+txt_help3="Press [ENTER] to continue..."
+txt_compressor1="choose the BINARY COMPRESSOR\n  for your BUILD SYSTEM";
+txt_compressor2="result : ";
+txt_compressor3="detected";
+txt_compressor4="not detected";
+txt_packok='is packed in archive';
+txt_packfail='failed to pack';
+txt_rcheckout='Missing SVN. Performing checkout now. Please wait ...\n';
+txt_extra1=' Select Features :\n [*] = enable; [ ] = disable';
+txt_extra2="Support for USB devices";
+txt_extra3="Support for PCSC readers";
+txt_extra4="Support for STAPI";
+txt_extra5="Support for COOLAPI";
+txt_extra6="Embed libs into OScam";
+txt_extra7="Package oscam as .tar.gz";
+txt_extra8="Compress the oscam binary using UPX";
+txt_checksys1="\n file check\n ----------\n";
+txt_checksys2="\n package check\n -------------\n";
+txt_checksys3="is installed";
+txt_checksys4="... is not installed";
+txt_checksys5="installed ";
+txt_checksys6="... is missing";
+txt_checksys7=" found in ";
+txt_cfg_path1="default is";
+txt_cfg_path2="current is";
+txt_cfg_path3="The confdir is set to";
+txt_lib_path1="The lib/dir is set to";
+txt_custom_suffix="leave empty for default";
+txt_online_update1="local version";
+txt_online_update2="online version";
+txt_online_update3="Would you like to update the SIMPLEBUILD script?";
+txt_conf_update1="local version";
+txt_conf_update2="online version";
+txt_conf_update3="Would you like to update the CONFIG FILE?";
+txt_patch="use patches";
+txt_patch_off1="patches found to remove\n----------------------------";
+txt_patch_off2="remove patch";
+txt_patch_off3="delete";
+txt_patch_off4="file from source";
+txt_patch_on1="patches found to apply\n---------------------------";
+txt_patch_on2="apply patch";
+txt_con_check1="Loading missing";
+txt_con_check2="Wrong toolchain size detected! Deleting and refetching.";
+txt_con_check3="failed to fetch";
+txt_configure_title="[ CONFIGURE ]";
+txt_configure_menu0="Configure";
+txt_configure_menu1="Modules, Protocols, Readers, Card reader drivers";
+txt_configure_menu2="Features (USB/PCSC/PACK/PATCH/STAPI/COOLAPI/COMPRESS)";
+txt_configure_menu3="Change the default oscam config directory";
+txt_configure_menu4="Change the default library search directory";
+txt_configure_menu5="Select Binary-Compressor";
+txt_configure_menu6="Set a custom name suffix for oscam binary";
+txt_configure_menu7="Back to build menu";
+txt_cmdline1="Performing revision checkout";
+txt_cmdline2="Performing trunk checkout";
+txt_cmdline3="using default profile";
+txt_cmdline4="using custom profile";
+txt_cmdline5="using saved profile";
+txt_cmdline6="custom profile not found\n using default";
+txt_cmdline7="saved profile not found\n using default";
+txt_cmd_build1="no clean SVN found\n       deleting oscam-svn now !!\n       -----------------------";
+txt_cmd_build2="SVN deleted\n       Start simplebuild again!\n       --------------------------";
+txt_cmd_build3="applying patches\n  -------------";
+txt_cmd_build4="patches found to apply";
+txt_cmd_build5="applying patch";
+txt_cmd_build6="cleaning up build";
+txt_cmd_build7="Filesize begin";
+txt_cmd_build8="Filesize after";
+txt_cmd_build9="Filesize reduced to";
+txt_cmd_build10="removing patches\n  --------------";
+txt_cmd_build11="patches found to remove";
+txt_cmd_build12="failed to build";
+txt_cmd_build13="reading the build.log"
+txt_cmd_build14="removing patch";
+txt_cmd_build_title='[ Compression INFO ]';
+txt_b_menu_title='[ Build Options ]';
+txt_b_menu_options1="no active Features"
+txt_b_menu1="[ BUILD MENU ]";
+txt_b_menu2="Informations";
+txt_b_menu3="Current Settings";
+txt_b_menu4="Customise your OScam";
+txt_b_menu5="Build OScam now";
+txt_b_menu6="Show build.log";
+txt_b_menu7="Show your OScam's configuration";
+txt_upload_cam1="configfile doesn't exist";
+txt_upload_cam2="configfile exists";
+txt_t_menu1="\n The actual SVN REVISION is : r";
+txt_rem_chains1="Please select the toolchain to remove";
+txt_add_chains1="Add a toolchain";
+txt_add_chains2="Please select a toolchain to add";
+txt_menu_builder1="Exit simplebuild";
+txt_menu_builder2="Add a toolchain";
+txt_menu_builder3="Remove an installed toolchain";
+txt_menu_builder4="Native for";
+txt_menu_back="Back to toolchain menu";
+txt_cedit1="Delete the debug binary";
+txt_cedit2="Checking installed toolchains";
+txt_cedit3="Enabling the AUTO PATCH SYSTEM";
+txt_cedit4="Enabling the Update Check";
+txt_cedit5="Verbose SCRIPT MODE";
+txt_revcheck1="UPDATE_CHECK";
+txt_revcheck2="checking online status of oscam SVN";
+txt_revcheck3="found revision:";
+txt_revcheck4="Enter revision number...";
+txt_revcheck5="impossible. SVN is offline!";
+txt_revcheck6="checking local svn";
+txt_revsel1="with local:";
+txt_revsel2="re-checkout";
+txt_revsel3="and deleting all config files";
+txt_revsel4="Configuration editor";
+txt_revsel5="Program";
+txt_revsel6="Updating to latest revision";
+txt_wrong1="buildcamname wrong or not found";
+txt_options1="Edit Options :";
+txt_options2="enable";
+txt_options3="enable";
+txt_options4="OK is restarting the script";
+txt_options_title="CONFIG Editor";
+txt_create='created in';
+txt_disksvn="Local REVISION is now r"
+txt_ENGLISH_END="###############################";
+}
+#äüßö
+lang_de()	{
+txt_DEUTSCH_ANFANG="############################";
+txt_create='erstellt in';
+txt_bmenu_user="Benutzername   ";
+txt_bmenu_comp="Compiler       ";
+txt_bmenu_debu="Debug Info     ";
+txt_bmenu_acti="Aktive Features";
+txt_wait='bitte warten...';
+txt_build="baue";
+txt_to="nach";
+txt_lc="benutzen";
+txt_lang_select="Sprache wechseln";
+txt_force="Schneller Checkout";
+txt_back="Zurück zum Toolchain Menu";
+txt_end="Beende Simplebuild";
+txt_offline="offline";
+txt_error="Fehler";
+txt_LOAD="UPLOAD";
+txt_DOWNLOAD="Downloading";
+txt_REMOVE="ENTFERNE";
+txt_found_in="gefunden in";
+txt_found_in_archiv="gefunden im archive";
+txt_buildtime="bauzeit";
+txt_nosvn="kein svn gefunden";
+txt_with="mit";
+txt_old='alt';
+txt_no_stapi="kein sh4 STAPI vorhanden!";
+txt_rm='entfernt';
+txt_help1='starten mit';
+txt_help2='Commando Zeilen Parameter sind';
+txt_help3="Taste [ENTER] zum fortsetzen..."
+txt_compressor1="choose the BINARY COMPRESSOR\n  for your BUILD SYSTEM";
+txt_compressor2="Ergebnis : ";
+txt_compressor3="gefunden";
+txt_compressor4="nicht gefunden";
+txt_packok='ist gepackt im archiv';
+txt_packfail='Fehler beim packen';
+txt_rcheckout='SVN Fehlt. Checkout wird durchgefürt. bitte warten ...\n';
+txt_extra1=' Features auswählen :\n [*] = ein; [ ] = aus';
+txt_extra2="USB Geräte Support";
+txt_extra3="PCSC Geräte Support";
+txt_extra4="STAPI Funktion benutzen";
+txt_extra5="COOLAPI Funktion benutzen";
+txt_extra6="Libs fest in Oscam einbauen";
+txt_extra7="Oscam als .tar.gz packen";
+txt_extra8="Oscam mit UPX komprimieren";
+txt_checksys1="\n Dateicheck \n ----------\n";
+txt_checksys2="\n Paketcheck\n -------------\n";
+txt_checksys3="ist installiert";
+txt_checksys4="... ist nicht installiert";
+txt_checksys5="installiert ";
+txt_checksys6="... fehlt";
+txt_checksys7=" gefunden in ";
+txt_cfg_path1="default ist";
+txt_cfg_path2="eingestellt ist";
+txt_cfg_path3="Das CONF_DIR ist eingestellt auf";
+txt_lib_path1="Das LIB_DIR ist eingestellt auf";
+txt_custom_suffix="leer lassen für Standard";
+txt_online_update1="lokale Version";
+txt_online_update2="online version";
+txt_online_update3="Wollen sie zum aktuellen SIMPLEBUILD script wechseln?";
+txt_conf_update1="lokale Version";
+txt_conf_update2="online Version";
+txt_conf_update3="Wollen sie zur aktuellen CONFIG Datei wechseln";
+txt_patch="patche benutzen";
+txt_patch_off1="Patch(e) zum entfernen gefunden\n--------------------------------";
+txt_patch_off2="entferne Patch(e)";
+txt_patch_off3="entferne";
+txt_patch_off4="Datei aus dem svn";
+txt_patch_on1="Patch(e) zum anwenden gefunden\n---------------------------------";
+txt_patch_on2="Patch(e) anwenden";
+txt_con_check1="Lade fehlenden";
+txt_con_check2="Falsche Toolchain größe erkannt! Entferne und lade neu.";
+txt_con_check3="Fehler beim laden";
+txt_configure_title="[ KONFIGURATION ]";
+txt_configure_menu0="Konfigurieren";
+txt_configure_menu1="Module, Protokolle, Reader, Karten und Reader Treiber";
+txt_configure_menu2="Features (USB/PCSC/PACK/PATCH/STAPI/COOLAPI/COMPRESS)";
+txt_configure_menu3="Standard Konfigurations- Verzeichniss einstellen";
+txt_configure_menu4="Standard Lib- Verzeichniss einstellen";
+txt_configure_menu6="eigene oscam Endung verwenden";
+txt_configure_menu7="Speichern und zurück zum Baumenu";
+txt_cmdline1="Revisions Checkout";
+txt_cmdline2="Trunk Checkout";
+txt_cmdline3="benutze standard Profil";
+txt_cmdline4="benutze custom Profil";
+txt_cmdline5="benutze gespeichertes Profil";
+txt_cmdline6="custom Profil not found\n benutze standard";
+txt_cmdline7="gespeichertes Profil nicht gefunden\n benutze standard";
+txt_cmd_build1="keinen sauberen SVN gefunden\n       entferne oscam-svn jetzt !!\n       ---------------------------";
+txt_cmd_build2="SVN entfernt\n       Starte Simplebuild erneut!\n       --------------------------";
+txt_cmd_build3="wende Patch(e) an\n  -----------------";
+txt_cmd_build4="Patch(e) zum anwenden gefunden";
+txt_cmd_build5="Patch(e) anwenden";
+txt_cmd_build6="SVN bereinigen";
+txt_cmd_build7="Dateigröße davor          ";
+txt_cmd_build8="Dateigröße danach         ";
+txt_cmd_build9="Dateigröße verkleinert auf";
+txt_cmd_build10="entferne Patch(e)\n  -----------------";
+txt_cmd_build11="Patch(e) zum entfernen gefunden";
+txt_cmd_build12="Fehler beim bauen";
+txt_cmd_build13="build.log lesen"
+txt_cmd_build14="entferne Patch(e)";
+txt_cmd_build_title='[ Compressions INFO ]';
+txt_b_menu_title='[ Bau Optionen ]';
+txt_b_menu_options1="keine aktiven Features"
+txt_b_menu1="[ BAU MENU ]";
+txt_b_menu2="Informationen";
+txt_b_menu3="Vorgenommene Einstellungen";
+txt_b_menu4="OScam Einstellen";
+txt_b_menu5="Baue OScam jetzt";
+txt_b_menu6="Zeige build.log";
+txt_b_menu7="Zeige OScam's Konfiguration";
+txt_upload_cam1="config Datei fehlt";
+txt_upload_cam2="config Datei gefunden";
+txt_t_menu1="\n Die aktuelle SVN REVISION ist : r";
+txt_rem_chains1="Bitte Toolchain zum entfernen auswählen";
+txt_add_chains1="Toolchain hinzufügen";
+txt_add_chains2="Bitte Toolchain zum hinzufügen auswählen";
+txt_menu_builder1="Beende Simplebuild";
+txt_menu_builder2="Toolchain hinzufügen";
+txt_menu_builder3="entferne einen installierten Toolchain";
+txt_menu_builder4="Nativ für";
+txt_menu_back="Zurück zum Toolchain menu";
+txt_cedit1="Entferne die .debug Datei";
+txt_cedit2="Installierte Toolchains prüfen";
+txt_cedit3="AUTO PATCH SYSTEM einschalten";
+txt_cedit4="Update Check einschalten";
+txt_cedit5="SCRIPT mit maximalen Infos beim bau";
+txt_revcheck1="UPDATE_CHECK";
+txt_revcheck2="ONLINE Status des oscam SVN prüfen";
+txt_revcheck3="gefundene Revision:";
+txt_revcheck4="Revisions Nummer eingeben...";
+txt_revcheck5="nicht möglich. SVN ist offline!";
+txt_revcheck6="Lokalen SVN prüfen";
+txt_revsel1="weiter mit lokalem SVN:";
+txt_revsel2="SVN";
+txt_revsel3="neu holen und alle configs entfernen";
+txt_revsel4="Konfigurations Editor";
+txt_revsel5="Program";
+txt_revsel6="Auf neuste Revision aktualisieren";
+txt_wrong1="buildcamname falsch oder nicht gefunden";
+txt_options1="Optionen bearbeiten:";
+txt_options2="einschalten";
+txt_options3="ausschalten";
+txt_options4="OK startet SIMPLEBUILD erneut";
+txt_options_title="CONFIG Editor";
+txt_disksvn="Lokale REVISION ist nun r"
+txt_DEUTSCH_ENDE="################################";
+}
+
+lang_fr()	{
+txt_francais_premire="############################";
+txt_create='crée dans';
+txt_bmenu_user="Utilisateur    ";
+txt_bmenu_comp="Compilateur    ";
+txt_bmenu_debu="Info Debug     ";
+txt_bmenu_acti="Options Actives";
+txt_wait="Veuillez patienter...";
+txt_build="Compilation";
+txt_to="à";
+txt_lc="utiliser";
+txt_lang_select="Change langue";
+txt_force="Forcer une MAJ rapide";
+txt_back="Retour au choix de la toolchain";
+txt_end="Quitter Simplebuild";
+txt_offline="Hors Ligne";
+txt_error="Erreur";
+txt_LOAD="UPLOAD";
+txt_DOWNLOAD="Téléchargment en cours";
+txt_REMOVE="Supprimer";
+txt_found_in="trouvé dans";
+txt_found_in_archiv="localisé dans archiv";
+txt_buildtime="Temps de Compilation";
+txt_nosvn="Pas de version SVN trouvée";
+txt_with="avec";
+txt_old="Ancien";
+txt_no_stapi="pas de STAPI SH4 disponible !!!";
+txt_rm="effacé";
+txt_help1="démarrer avec";
+txt_help2="les paramètres de lignes de commande possibles sont";
+txt_help3="touche [ENTER] pour continuer..."
+txt_compressor1="Choisissez le compresseur de binaires\n pour votre systeme de compilation";
+txt_compressor2="résultat : ";
+txt_compressor3="détecté";
+txt_compressor4="non détecté";
+txt_packok="est compressé dans archiv";
+txt_packfail="n'a pu compresser";
+txt_rcheckout="Structure SVN manquante ... Mise à jour, Veuillez Patienter !\n";
+txt_extra1=" Choisissez les options :\n [*] = activer; [ ] = désactiver";
+txt_extra2="Support des lecteurs USB";
+txt_extra3="Support des lecteurs PCSC";
+txt_extra4="Support de STAPI";
+txt_extra5="Support de COOLAPI";
+txt_extra6="Compiler les libs dans OScam";
+txt_extra7="Compacter le binaire oscam en .tar.gz";
+txt_extra8="Compresser le binaire oscam avec UPX";
+txt_checksys1="\n vérification des fichiers\n -------------------------\n";
+txt_checksys2="\n vérification des packages\n -------------------------\n";
+txt_checksys3="est installé";
+txt_checksys4="... nest pas installé";
+txt_checksys5="installé ";
+txt_checksys6="... nest pas installé";
+txt_checksys7=" trouvé dans ";
+txt_cfg_path1="valeur par défaut";
+txt_cfg_path2="valeur actuelle";
+txt_cfg_path3="répertoire de configuration";
+txt_lib_path1="répertoire de librairies";
+txt_custom_suffix="laissez vide pour utiliser les valeurs par défaut";
+txt_online_update1="version locale";
+txt_online_update2="version en ligne";
+txt_online_update3="Voulez-vous mettre à jour SIMPLEBUILD ?";
+txt_conf_update1="version locale";
+txt_conf_update2="version en ligne";
+txt_conf_update3="Voulez-vous mettre à jour le fichier de CONFIG ?";
+txt_patch="utiliser patch";
+txt_patch_off1="patche(s) trouvé(s) pour suppression\n------------------------------------";
+txt_patch_off2="supprimer patch";
+txt_patch_off3="supprimer";
+txt_patch_off4="fichier de la source";
+txt_patch_on1="patche(s) trouvé(s) pour application\n------------------------------------";
+txt_patch_on2="appliquer patch";
+txt_con_check1="Téléchargement manquant";
+txt_con_check2="taille de toolchain incorrecte. Supprimez et recommencez !";
+txt_con_check3="Téléchargement impossible";
+txt_configure_title="[ CONFIGURATION ]";
+txt_configure_menu0="Configuration";
+txt_configure_menu1="Add-ons, Protocoles, Systèmes CA, Lecteurs de Cartes";
+txt_configure_menu2="Autres Réglages (USB/PCSC/STAPI/COOL/PACK/PATCH/COMPRESS)";
+txt_configure_menu3="Changer le répertoire de config par défaut";
+txt_configure_menu4="Changer le répertoire des librairies par défaut";
+txt_configure_menu5="Choisir le Compresseur Binaire";
+txt_configure_menu6="Choisir un suffixe personnalisé pour le binaire OSCAM";
+txt_configure_menu7="Retour au MENU DE COMPILATION";
+txt_cmdline1="Checkout Revision";
+txt_cmdline2="Checkout trunk";
+txt_cmdline3="prise en compte du profil par défaut";
+txt_cmdline4="prise en compte du profil custom";
+txt_cmdline5="prise en compte du profil saved";
+txt_cmdline6="profil custom absent\n profil par défaut pris en compte";
+txt_cmdline7="profil saved absent\n profile par défaut pris en compte";
+txt_cmd_build1="pas de SVN correct trouvé\n supprimez oscam-svn !!\n ----------------------";
+txt_cmd_build2="SVN effacé\n redemarrez simplebuild !!\n --------------------------------------";
+txt_cmd_build3="appliquer le(s) patche(s)\n -------------------------";
+txt_cmd_build4="patches trouvé(s) pour être appliqué(s)";
+txt_cmd_build5="appliquer le patch";
+txt_cmd_build6="Nettoyer le SVN d'OSCam local";
+txt_cmd_build7="Taille du binaire avant compression";
+txt_cmd_build8="Taille du binaire après compression";
+txt_cmd_build9="Taille du binaire réduite à";
+txt_cmd_build10="supprimer les patches\n ---------------------";
+txt_cmd_build11="patche(s) trouvé(s) pour être appliqués";
+txt_cmd_build12="échec de compilation";
+txt_cmd_build13="voir le fichier build.log";
+txt_cmd_build14="supprimer patch";
+txt_cmd_build_title="[ INFO Compression ]";
+txt_b_menu_title="[ Options de compilation ]";
+txt_b_menu_options1="pas d'options actives";
+txt_b_menu1="[ MENU DE COMPILATION ]";
+txt_b_menu2="Informations";
+txt_b_menu3="Réglages Actuels";
+txt_b_menu4="Configuration et Réglages d'OSCam";
+txt_b_menu5="Compiler OSCam";
+txt_b_menu6="Voir build.log";
+txt_b_menu7="Voir la configuration d'OSCam";
+txt_upload_cam1="le fichier de configuration n'existe pas";
+txt_upload_cam2="le fichier de config existe";
+txt_t_menu1="\n La révision actuelle d'OSCam SVN est : r";
+txt_rem_chains1="Veuillez choisir la toolchain à supprimer";
+txt_add_chains1="AJOUTER Toolchain";
+txt_add_chains2="Veuillez choisir la toolchain à ajouter";
+txt_menu_builder1="Quitter Simplebuild";
+txt_menu_builder2="Nouvelle Toolchain";
+txt_menu_builder3="Toolchain installées";
+txt_menu_builder4="Native pour";
+txt_menu_back="Retour à la sélection de Toolchain";
+txt_cedit1="Supprimer le binaire de debug";
+txt_cedit2="Verifier les Toolchains installées";
+txt_cedit3="Activer le système de Patches Automatique";
+txt_cedit4="Activer la vérification de Mises à jour";
+txt_cedit5="Informations detaillées sur la compilation";
+txt_revcheck1="VERIFICATION DE MISE A JOUR";
+txt_revcheck2="Vérification de la version d'OSCam SVN en ligne\n\t\b";
+txt_revcheck3="Révision disponible:";
+txt_revcheck4="Entrer le numéro de Révision...";
+txt_revcheck5="impossible. SVN hors ligne !";
+txt_revcheck6="Vérification de la version d'OSCam SVN locale\n\t\b";
+txt_revsel1="avec locale:";
+txt_revsel2="Effacer la";
+txt_revsel3="et tous les fichiers de configuration";
+txt_revsel4="Editeur de configuration";
+txt_revsel5="Programme";
+txt_revsel6="Mettre à jour vers la dernière Révision";
+txt_options1="Editer Options :";
+txt_options2="activer";
+txt_options3="activer";
+txt_options4="OK rédemarre Simplebuild";
+txt_options_title="Editeur de Configuration";
+txt_disksvn="révision locale est maintenant r"
+txt_francais_fin="################################";
+}
+
+lang_it()	{
+txt_italiano_inizio="############################"
+txt_create='creato in';
+txt_bmenu_user="Nome utente           ";
+txt_bmenu_comp="Compilatore           ";
+txt_bmenu_debu="Informazioni di Debug ";
+txt_bmenu_acti="Caratteristiche attive";
+txt_wait="attendere prego...";
+txt_build="compilo";
+txt_lc="utilizzare";
+txt_to="verso";
+txt_force="Checkout rapido";
+txt_back="Torna al menu Toolchain";
+txt_end="Termina Simplebuild";
+txt_offline="offline";
+txt_error="Errore";
+txt_LOAD="CARICA";
+txt_DOWNLOAD="Sto scaricando";
+txt_REMOVE="RIMUOVI";
+txt_found_in="trovato in";
+txt_found_in_archiv="trovato in archivio";
+txt_buildtime="tempo di compilazione";
+txt_nosvn="nessuna svn trovata";
+txt_with="con";
+txt_old="vecchio";
+txt_no_stapi="nessun sh4 STAPI presente!";
+txt_rm="rimosso";
+txt_help1="inizia con";
+txt_help2="Le linee di comando sono";
+txt_help3="Premi [ENTER] per continuare..."
+txt_compressor1="scegli la COMPRESSIONE BINARIA\n  per il tuo SISTEMA DI COMPILAZIONE";
+txt_compressor2="Risultato : ";
+txt_compressor3="trovato";
+txt_compressor4="non trovato";
+txt_packok="è compresso nell'arvhivio";
+txt_packfail="errore durante la compressione";
+txt_rcheckout=" manca SVN. Vengono cerati aggioranmenti. Attendere prego...\n";
+txt_extra1=" Scegliere le caratteristiche :\n [*] = on; [ ] = off";
+txt_extra2="supporto periferiche USB";
+txt_extra3="supporto periferiche PCSC";
+txt_extra4="utilizza la funzione STAPI";
+txt_extra5="utilizza la funzione COOLAPI";
+txt_extra6="includi le librerie in Oscam";
+txt_extra7="comprimere Oscam come .tar.gz";
+txt_extra8="Comprimere Oscam con UPX";
+txt_checksys1="\n controllo file\n --------------\n";
+txt_checksys2="\n controllo pacchetto\n -------------------\n";
+txt_checksys3="è intallato";
+txt_checksys4="... non è installato";
+txt_checksys5="installato ";
+txt_checksys6="... maca";
+txt_checksys7=" trovato in ";
+txt_cfg_path1="default è";
+txt_cfg_path2="impostato è";
+txt_cfg_path3="La CONF_DIR è impostata a";
+txt_lib_path1="La LIB_DIR è impostata a";
+txt_custom_suffix="lasciare vuoto per Standard";
+txt_online_update1="versione locale";
+txt_online_update2="versione online";
+txt_online_update3="Volete cambiare alla versione attuale dello script SIMPLEBUILD";
+txt_conf_update1="versione locale";
+txt_conf_update2="versione online";
+txt_conf_update3="Volete cambiare alla versione attuale del file CONFIG";
+txt_patch="usare patch";
+txt_patch_off1="Patch(e) trovati da eliminare\n-----------------------------";
+txt_patch_off2="rimuovi Patch(s)";
+txt_patch_off3="rimuovo";
+txt_patch_off4="files dalla svn";
+txt_patch_on1="Patch(s) da applicare trovati\n-----------------------------";
+txt_patch_on2="Patch(s) applicare";
+txt_con_check1="carico mancanti";
+txt_con_check2="riconosciuta dimensione Toolchain errata! Rimuovo e ricarico.";
+txt_con_check3="errore durante il caricamento";
+txt_configure_title="[ CONFIGURAZIONE ]";
+txt_configure_menu0="Configurare";
+txt_configure_menu1="Moduli, Protocolli, Lettori, Carten e Driver per Reader";
+txt_configure_menu2="Caratteristiche (USB/PCSC/PACK/PATCH/STAPI/COOLAPI/COMPRESS)";
+txt_configure_menu3="Configurazioni standard- impostazione directory";
+txt_configure_menu4="Librerie standard- impostazione directory";
+txt_configure_menu6="eigene oscam Endung verwenden";
+txt_configure_menu7="Salvare e tornare al menu di compilazione";
+txt_cmdline1="Revisions Checkout";
+txt_cmdline2="Trunk Checkout";
+txt_cmdline3="utilizza il profilo standard";
+txt_cmdline4="utilizza il profilo personalizzato";
+txt_cmdline5="utilizza il profilo salvato";
+txt_cmdline6="profilo personalizzato non trovato\n utilizzo profilo standard";
+txt_cmdline7="profilo salvato non trovato\n utilizzo profilo standard";
+txt_cmd_build1="nessuna SVN originale trovata\n       rimuovi subito oscam-svn !!\n       ---------------------------";
+txt_cmd_build2="SVN rimossa\n       Riavvia Simplebuild!\n       --------------------";
+txt_cmd_build3="applico Patch(s)\n  ----------------";
+txt_cmd_build4="trovato Patch(s) da rimuovere";
+txt_cmd_build5="applicare Patch(s)";
+txt_cmd_build6="pulire SVN";
+txt_cmd_build7="Dimensione file prima          ";
+txt_cmd_build8="Dimensione file dopo           ";
+txt_cmd_build9="Dimensione file rimpicciolita di";
+txt_cmd_build10="rimuovo Patch(s)\n  ----------------";
+txt_cmd_build11="trovato Patch(s) da rimuovere";
+txt_cmd_build12="errore durante la compilazione";
+txt_cmd_build13="leggere build.log"
+txt_cmd_build14="rimuovo Patch(s)";
+txt_cmd_build_title="[ INFO compressione ]";
+txt_b_menu_title="[ Opzioni compilazione ]";
+txt_b_menu_options1="nessuna caratteristica attiva"
+txt_b_menu1="[ MENU COMPILAZIONE ]";
+txt_b_menu2="Informazioni";
+txt_b_menu3="impostazioni applicate";
+txt_b_menu4="imposta OScam";
+txt_b_menu5="Compilo Oscam";
+txt_b_menu6="Mostra build.log";
+txt_b_menu7="mostra la configurazione OScam";
+txt_upload_cam1="manca il file config";
+txt_upload_cam2="file config trovato";
+txt_t_menu1="\n La versione SVN attuale è : r";
+txt_rem_chains1="Selezione per favore il Toolchain da rimuovere";
+txt_add_chains1="Aggiungi Toolchain";
+txt_add_chains2="Selezionare per favore il Toolchain da aggiungere";
+txt_menu_builder1="Termina Simplebuild";
+txt_menu_builder2="Aggiungi un Toolchain";
+txt_menu_builder3="Rimuovi un Toolchain installato";
+txt_menu_builder4="Nativo per";
+txt_menu_back="Torna al menu Toolchain";
+txt_cedit1="Rimuovi il file .debug";
+txt_cedit2="Controlla i Toolchains installati";
+txt_cedit3="Attiva AUTO PATCH SYSTEM";
+txt_cedit4="Attiva Update Check";
+txt_cedit5="SCRIPT mit maximalen Infos beim bau";
+txt_revcheck1="CONTROLLO_UPDATE";
+txt_revcheck2="Controllo versione ONLINE di Oscam";
+txt_revcheck3="Versione trovata:";
+txt_revcheck4="Immettere il numero della SVN desiderata...";
+txt_revcheck5="impossibile. SVN è offline!";
+txt_revcheck6="Controllare la SVN locale";
+txt_revsel1="Continua con SVN locale:";
+txt_revsel2="SVN";
+txt_revsel3="riscaricare e rimuovere le configurazioni";
+txt_revsel4="Editore configurazioni";
+txt_revsel5="Esci dal programma";
+txt_revsel6="Aggiornare all'ultima versione";
+txt_wrong1="buildcamname errato o non trovato";
+txt_options1="Modifica opzioni:";
+txt_options2="ativare";
+txt_options3="Disattivare";
+txt_options4="OK riavvia SIMPLEBUILD";
+txt_options_title="Editore CONFIG";
+txt_disksvn="revisione locale è ora r"
+}
+
+translation()	{
+		lang_en;
+
+		if [ -f "$rdir/toolchains/configs/lang" ]; then
+		    lang=$(cat $rdir/toolchains/configs/lang);
+		else
+		    lang=${LANG:0:2};
+		fi
+
+		if [ "$lang" == "de" ]; then
+		    lang_de;
+		fi;
+		if [ "$lang" == "fr" ]; then
+		    lang_fr;
+		fi;
+		if [ "$lang" == "it" ]; then
+		    lang_it;
+		fi;
+		}
+
+[ -f build.log ] && rm build.log && touch build.log;
+echo "">/tmp/osvn;
+echo "">/tmp/status;
+echo "">/tmp/chosetext;
+echo "">/tmp/REVISION;
+
+gui=`which dialog`;
+all_gui_txt="--stdout --clear --colors --backtitle SIMPLEBUILD"
+checklistparam="--stdout --clear --backtitle SIMPLEBUILD --no-cancel --title ";
+checklistbox_gui="$gui $all_gui_txt --no-cancel --checklist ";
+gauge_gui="$gui $all_gui_txt --gauge ";
+infobox_gui="$gui $all_gui_txt --msgbox ";
+inputbox_gui="$gui $all_gui_txt --inputbox ";
+yesnobox_gui="$gui $all_gui_txt --colors --defaultno --yesno ";
+menubox_gui="$gui --no-cancel $all_gui_txt"
+progressbox_gui="$gui --stdout --backtitle SIMPLEBUILD";
+
+translation;
+[ ! -d "$rdir/logs" ] && mkdir "$rdir/logs";
+
+export NCURSES_NO_UTF8_ACS=1;
+clear;
+first=$1
+second=$2
+
+if [ "$directmenu" == "1" ]; then
+    [ $# -lt 1 ] && main_prog && bye;
+    [ $1 = "menu" ] && main_prog && bye;
+    commandlineparams="$@";
+    cmdline "$@";
+else
+    [ $# -lt 1 ] && usage;
+    [ $1 = "menu" ] && main_prog && bye || commandlineparams="$@" && cmdline "$@";
+fi;
+
+exit;
