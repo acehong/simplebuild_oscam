@@ -1,3 +1,4 @@
+./simplebuild ubu14install
 
 ./simplebuild debinstall
 
